@@ -16,7 +16,7 @@ app.use('/admin/category',categoryRoutes)
 
 
 
-// user Routes
+// USER Routes
 
 
 
