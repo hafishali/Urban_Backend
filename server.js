@@ -3,6 +3,7 @@ const express = require("express")
 const cors = require("cors")
 const adminAuth = require('./Routes/Admin/Auth/AdminAuth')
 const categoryRoutes = require('./Routes/Admin/Category/CategoryRoute')
+const SubcategoryRoutes = require('./Routes/Admin/SubCategory/SubCategoryRoute')
 const path = require('path')
 
 const app = express()
@@ -13,6 +14,7 @@ require('./DB/connection')
 // admin Routes
 app.use('/admin/auth',adminAuth)
 app.use('/admin/category',categoryRoutes)
+app.use('/admin/Subcategory',SubcategoryRoutes)
 
 
 
