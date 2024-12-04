@@ -19,4 +19,7 @@ router.patch('/update/:id',jwtVerify,multer.single('image'), categoryController.
 // delete category
 router.delete('/delete/:id',jwtVerify, categoryController.deleteCategory);
 
+// search category
+router.get('/search', categoryController.searchCategory)
+
 module.exports = router;

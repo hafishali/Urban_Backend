@@ -126,3 +126,30 @@ exports.deleteCategory = async (req,res) => {
         res.status(500).json({ message: 'Error deleting category', error: err.message });
     }
 };
+
+// search category by name
+exports.searchCategory = async (req, res) => {
+    const { name } = req.query;
+
+    try {
+        // build the query dynamically
+        const query = {};
+        if(name) {
+            query.name = { $regex: name, $options: 'i' }; // Case-insensitive regex
+        }
+
+        const categories = await Category.find(query);
+
+        // Add image URLs to the response
+        const categoriesWithImageUrl = categories.map((category) => ({
+            id: category._id,
+            name: category.name,
+            description: category.description,
+            imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${category.image}`
+        }));
+
+        res.status(200).json(categoriesWithImageUrl);
+    } catch (err) {
+        res.status(500).json({ message: 'Error searching categories', error: err.message });
+    }
+};
