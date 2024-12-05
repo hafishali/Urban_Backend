@@ -148,4 +148,7 @@ exports.searchSubCategory = async (req, res) => {
     } catch (err) {
         res.status(500).json({ message: 'Error searching categories', error: err.message });
     }
+
 };
+
+
