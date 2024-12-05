@@ -4,6 +4,8 @@ const cors = require("cors")
 const adminAuth = require('./Routes/Admin/Auth/AdminAuth')
 const categoryRoutes = require('./Routes/Admin/Category/CategoryRoute')
 const SubcategoryRoutes = require('./Routes/Admin/SubCategory/SubCategoryRoute')
+const sliderRoutes = require('./Routes/Admin/Slider/sliderRoute')
+const couponRoutes = require('./Routes/Admin/Coupon/couponRoute')
 const path = require('path')
 
 const app = express()
@@ -15,6 +17,8 @@ require('./DB/connection')
 app.use('/admin/auth',adminAuth)
 app.use('/admin/category',categoryRoutes)
 app.use('/admin/Subcategory',SubcategoryRoutes)
+app.use('/admin/slider',sliderRoutes)
+app.use('/admin/coupon',couponRoutes)
 
 
 

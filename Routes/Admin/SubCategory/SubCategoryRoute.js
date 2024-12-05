@@ -22,4 +22,5 @@ router.delete('/delete/:id',jwtVerify,SubcategoryController.deleteSubCategory)
 // search category
 router.get('/search', SubcategoryController.searchSubCategory)
 
+
 module.exports = router;
