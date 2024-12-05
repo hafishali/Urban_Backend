@@ -19,4 +19,8 @@ router.patch('/update/:id',jwtVerify,multer.single('image'),SubcategoryControlle
 // delete subcategory
 router.delete('/delete/:id',jwtVerify,SubcategoryController.deleteSubCategory)
 
+// search category
+router.get('/search', SubcategoryController.searchSubCategory)
+
+
 module.exports = router;

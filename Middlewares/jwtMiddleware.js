@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 
-const verifyAdminToken = (req, res, next) => {
+const verifyAdminToken = (allowedRoles = []) => {
+
+  return (req, res, next) => {
 
     const authHeader = req.headers['authorization'];
 
@@ -17,16 +19,19 @@ const verifyAdminToken = (req, res, next) => {
 
     try {
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-        if(decodedToken.role && decodedToken.role === 'admin'){
-            req.admin = decodedToken;
-            next();
-        }else{
-            return res.status(401).json("Unauthorized. Admin access required.")
+        
+        // If roles are provided, ensure the user has one of them
+        if (allowedRoles.length && !allowedRoles.includes(decodedToken.role)) {
+            return res.status(401).json({ message: "Unauthorized. Access denied." });
         }
+
+        req.user = decodedToken; // Attach decoded data to request
+        next();
 
     } catch (err) {
         return res.status(401).json({ message: "Invalid or expired token." });
     }
+};
 };
 
 module.exports = verifyAdminToken;
