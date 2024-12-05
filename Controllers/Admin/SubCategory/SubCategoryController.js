@@ -117,3 +117,35 @@ exports.deleteSubCategory = async (req,res) => {
         res.status(500).json({ message: 'Error deleting Subcategory', error: err.message });
     }
 };
+
+// search subcategory
+exports.searchSubCategory = async (req, res) => {
+    const { name } = req.query;
+
+    try {
+        // Build the query dynamically
+        const query = {};
+        if (name) {
+            query.title = { $regex: name, $options: 'i' }; // Case-insensitive regex
+        }
+
+        const SubCategoryData = await SubCategory.find(query).populate('category');
+
+        // Add image URLs to the response
+        const SubcategoriesWithImageUrl = SubCategoryData.map((subcategory) => ({
+            id: subcategory._id,
+            title: subcategory.title,
+            MainCategory: {
+                id: subcategory.category?._id,
+                name: subcategory.category?.name,
+                description: subcategory.category?.description,
+                imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategory.category?.image}`
+            },
+            SubImageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategory.image}`
+        }));
+
+        res.status(200).json(SubcategoriesWithImageUrl);
+    } catch (err) {
+        res.status(500).json({ message: 'Error searching categories', error: err.message });
+    }
+};
