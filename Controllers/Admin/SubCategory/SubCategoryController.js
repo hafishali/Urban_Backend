@@ -2,15 +2,15 @@ const SubCategory = require('../../../Models/Admin/SubcategoyModel')
 const fs = require('fs');
 
 // create subcategory
-exports.createSubCategory = async (req, res) => {
-    const { title, category, image } = req.body
-    if (!req.file) {
-        return res.status(400).json({ message: "SubCategory Image is required" })
-    }
+exports.createSubCategory=async(req,res)=>{
+    const{title,category}=req.body
+        if(!req.file){
+            return res.status(400).json({message:"SubCategory Image is required"})
+        }
     try {
-        const newSubCategory = new SubCategory({ title, category, image: req.file.filename })
+       const newSubCategory=new SubCategory({title,category,image: req.file.filename}) 
         await newSubCategory.save()
-        res.status(201).json({ message: 'SubCategory created successfully', SubCategory: newSubCategory });
+        res.status(201).json({ message: 'SubCategory created successfully' , SubCategory: newSubCategory});
     } catch (error) {
         res.status(500).json({ message: "Internal Server Error", error })
     }
