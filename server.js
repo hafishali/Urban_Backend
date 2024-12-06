@@ -6,6 +6,7 @@ const categoryRoutes = require('./Routes/Admin/Category/CategoryRoute')
 const SubcategoryRoutes = require('./Routes/Admin/SubCategory/SubCategoryRoute')
 const sliderRoutes = require('./Routes/Admin/Slider/sliderRoute')
 const couponRoutes = require('./Routes/Admin/Coupon/couponRoute')
+const productRoutes = require('./Routes/Admin/Product/productRoute')
 const path = require('path')
 
 const app = express()
@@ -19,6 +20,7 @@ app.use('/admin/category',categoryRoutes)
 app.use('/admin/Subcategory',SubcategoryRoutes)
 app.use('/admin/slider',sliderRoutes)
 app.use('/admin/coupon',couponRoutes)
+app.use('/admin/products',productRoutes)
 
 
 
