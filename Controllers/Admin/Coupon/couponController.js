@@ -94,3 +94,31 @@ exports.deleteCoupon = async (req, res) => {
         res.status(500).json({message: "Error deleting coupon", error: err.message})
     }
 }
+
+// search coupon
+exports.searchCoupon = async (req, res) => {
+    const { title, code, category } = req.query;
+
+    try {
+        const query = {};
+
+        if (title) {
+            query.title = { $regex: title, $options: 'i' };
+        }
+        if (code) {
+            query.code = { $regex: code, $options: 'i' };
+        }
+        if (category) {
+            query.category = category
+    }
+
+    const coupons = await Coupon.find(query).populate('category', 'name description');
+
+    res.status(200).json({
+        message: "Coupons found",
+        coupons,
+    });
+} catch (err) {
+    res.status(500).json({ message: "Error searching coupons", error: err.message })
+}
+};
