@@ -5,7 +5,7 @@ const jwtVerify=require('../../../Middlewares/jwtMiddleware')
 const multer=require('../../../Middlewares/multerMiddleware')
 
 // create new subcategory
-router.post('/create',jwtVerify,multer.single('image'),SubcategoryController.createSubCategory)
+router.post('/create',jwtVerify(['admin']),multer.single('image'),SubcategoryController.createSubCategory)
 
 // get subcategory
 router.get('/get',SubcategoryController.getSubCategories)
@@ -14,10 +14,10 @@ router.get('/get',SubcategoryController.getSubCategories)
 router.get('/get/:id',SubcategoryController.getSubCategoryById)
 
 // update subcategory
-router.patch('/update/:id',jwtVerify,multer.single('image'),SubcategoryController.updateSubCategory)
+router.patch('/update/:id',jwtVerify(['admin']),multer.single('image'),SubcategoryController.updateSubCategory)
 
 // delete subcategory
-router.delete('/delete/:id',jwtVerify,SubcategoryController.deleteSubCategory)
+router.delete('/delete/:id',jwtVerify(['admin']),SubcategoryController.deleteSubCategory)
 
 // search category
 router.get('/search', SubcategoryController.searchSubCategory)
