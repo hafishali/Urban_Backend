@@ -16,6 +16,9 @@ const productSchema = new mongoose.Schema({
   sizes: [{ type: String, required: [true, "At least one size is required"] }], 
   stock: { type: Number, required: [true, "Stock is required"] },
   orderCount: { type: Number, default:0 },
+  isLatestProduct: { type: Boolean, default: false }, 
+  isOfferProduct: { type: Boolean, default: false }, 
+  isFeaturedProduct: { type: Boolean, default: false },
   features: {
    netWeight: { type: String, default: null }, 
    fit: { type: String, default: null },       
@@ -24,7 +27,6 @@ const productSchema = new mongoose.Schema({
    occasion: { type: String, default: null }, 
    innerLining: { type: String, default: null }, 
  }
-
 });
 
 module.exports = mongoose.model('Products', productSchema);

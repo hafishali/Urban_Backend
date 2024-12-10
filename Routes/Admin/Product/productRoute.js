@@ -13,12 +13,15 @@ router.post('/create-product',jwtVerify(['admin']),upload, productController.add
 router.get('/view-products',jwtVerify(['admin']), productController.getAllProducts);
 
 // Get a single product by ID
-router.get('/products/:id', productController.getProductById);
+router.get('/product/:id', productController.getProductById);
 
-// Update a product
-router.patch('/products/:id',jwtVerify(['admin']),upload, productController.updateProduct);
+// Update a product with image handling
+router.patch('/update-product/:id', jwtVerify(['admin']), upload, productController.updateProduct);
+
+// Delete an image 
+router.post('/delete-product-image/:id', jwtVerify(['admin']), productController.deleteProductImage);
 
 // Delete a product
-router.delete('/products/:id',jwtVerify(['admin']), productController.deleteProduct);
+router.delete('/delete-product/:id',jwtVerify(['admin']), productController.deleteProduct);
 
 module.exports = router;
