@@ -1,17 +1,22 @@
 const User = require('../../../Models/User/UserModel');
 const Address = require('../../../Models/User/AddressModel'); // Import Address model
 
-// Get user profile
+// Get user profile by id
 exports.getProfile = async (req, res) => {
+  const { userId } = req.params
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
+}
     try {
         // Find user details
-        const user = await User.findById(req.user.userId); 
+        const user = await User.findById(userId); 
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
 
         // Find all addresses associated with the user
-        const addresses = await Address.find({ userId: req.user.userId });
+        const addresses = await Address.find({ userId: userId });
 
         res.status(200).json({
             user: {
@@ -34,6 +39,8 @@ exports.getProfile = async (req, res) => {
     }
 };
 
+
+// fetch all user
 exports.getAllUsers = async (req, res) => {
     try {
         // Fetch all users
@@ -47,6 +54,7 @@ exports.getAllUsers = async (req, res) => {
                     id: user._id,
                     name: user.name,
                     phone: user.phone,
+                    status: user.status,
                     email: user.email,
                     dob: user.dob,
                     gender: user.gender,
@@ -67,80 +75,73 @@ exports.getAllUsers = async (req, res) => {
 };
 
 
-// Update user profile
-exports.updateProfile = async (req, res) => {
-    const { name, email, dob, gender, address, city, district, state, pincode } = req.body;
+// // Update user profile
+// exports.updateProfile = async (req, res) => {
+//     const { userId } = req.params;
+//     const { name, email, dob, gender, address, city, district, state, pincode } = req.body;
 
-    try {
-        const user = await User.findById(req.user.userId); 
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
+//     try {
+//         const user = await User.findById(userId); 
+//         if (!user) {
+//             return res.status(404).json({ message: "User not found" });
+//         }
 
-        // Update fields
-        user.name = name || user.name;
-        user.email = email || user.email;
-        user.dob = dob || user.dob;
-        user.gender = gender || user.gender;
-        user.address = address || user.address;
-        user.city = city || user.city;
-        user.district = district || user.district;
-        user.state = state || user.state;
-        user.pincode = pincode || user.pincode;
+//         // Update fields
+//         user.name = name || user.name;
+//         user.email = email || user.email;
+//         user.dob = dob || user.dob;
+//         user.gender = gender || user.gender;
+//         user.address = address || user.address;
+//         user.city = city || user.city;
+//         user.district = district || user.district;
+//         user.state = state || user.state;
+//         user.pincode = pincode || user.pincode;
 
-        await user.save();
+//         await user.save();
 
-        res.status(200).json({
-            message: "Profile updated successfully",
-            user: {
-                id: user._id, // Include the user ID
-                name: user.name,
-                email: user.email,
-                dob: user.dob,
-                gender: user.gender,
-                address: user.address,
-                city: user.city,
-                district: user.district,
-                state: user.state,
-                pincode: user.pincode,
-            },
-        });
-    } catch (err) {
-        res.status(500).json({ message: "Server error", error: err.message });
+//         res.status(200).json({
+//             message: "Profile updated successfully",
+//             user: {
+//                 id: user._id, // Include the user ID
+//                 name: user.name,
+//                 email: user.email,
+//                 status: user.status,
+//                 dob: user.dob,
+//                 gender: user.gender,
+//                 address: user.address,
+//                 city: user.city,
+//                 district: user.district,
+//                 state: user.state,
+//                 pincode: user.pincode,
+//             },
+//         });
+//     } catch (err) {
+//         res.status(500).json({ message: "Server error", error: err.message });
+//     }
+// };
+
+
+// toggle user status
+exports.toggleUserStatus = async (req, res) => {
+  const { userId } = req.params;
+  const { status } = req.body;
+
+  try {
+    const user = await User.findById(userId);
+    if(!user){
+      return res.status(404).json({ message: 'User not found'});
     }
-};
+    user.status = status;
+    await user.save();
+
+    const statusMessage = status? 'activated':'suspended';
+    res.status(200).json({message:`User ${statusMessage} successfully`});
+  } catch (err) {
+    res.status(500).json({message:'Server error', error: err.message});
+  }
+}
 
 
-// Suspend a User
-exports.suspendUser = async (req, res) => {
-    const { userId } = req.params;
-    try {
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-      user.status = 'suspended';
-      await user.save();
-      res.status(200).json({ message: 'User suspended successfully' });
-    } catch (err) {
-      res.status(500).json({ message: 'Server error', error: err.message });
-    }
-  };
-  // active a User
-exports.activeUser = async (req, res) => {
-    const { userId } = req.params;
-    try {
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-      user.status = 'active';
-      await user.save();
-      res.status(200).json({ message: 'User actived successfully' });
-    } catch (err) {
-      res.status(500).json({ message: 'Server error', error: err.message });
-    }
-  };
   // delete a user
   exports.deleteUser = async (req, res) => {
     const { userId } = req.params;
