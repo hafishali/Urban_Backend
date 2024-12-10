@@ -1,0 +1,27 @@
+const express = require('express');
+const router = express.Router();
+const productController = require('../../../Controllers/Admin/Product/productController')
+const jwtVerify = require('../../../Middlewares/jwtMiddleware')
+const multer=require('../../../Middlewares/multerMiddleware')
+
+const upload = multer.array("images",5)
+
+// Add a new product
+router.post('/create-product',jwtVerify(['admin']),upload, productController.addProduct );
+
+// Get all products
+router.get('/view-products',jwtVerify(['admin']), productController.getAllProducts);
+
+// Get a single product by ID
+router.get('/product/:id', productController.getProductById);
+
+// Update a product with image handling
+router.patch('/update-product/:id', jwtVerify(['admin']), upload, productController.updateProduct);
+
+// Delete an image 
+router.post('/delete-product-image/:id', jwtVerify(['admin']), productController.deleteProductImage);
+
+// Delete a product
+router.delete('/delete-product/:id',jwtVerify(['admin']), productController.deleteProduct);
+
+module.exports = router;
