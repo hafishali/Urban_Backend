@@ -19,6 +19,7 @@ const userController = require('./Routes/User/Auth/UserAuth')
 const profileController = require('./Routes/User/Profile/profileRoute')
 const checkoutController=require('./Routes/User/Checkout/checkoutRoute')
 const userAdminController=require('./Routes/Admin/Users/userRoute')
+const orderController = require('./Routes/User/Order/OrderRoute')
 
 
 
@@ -53,6 +54,7 @@ app.use('/user/address',addressController)
 app.use('/user/auth',userController)
 app.use('/user/profile',profileController)
 app.use('/user/checkout',checkoutController)
+app.use('/user/order',orderController)
 
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))

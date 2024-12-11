@@ -1,19 +1,57 @@
 const mongoose = require('mongoose');
 
 const checkoutSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  cartId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cart', required: true },
+  userId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
+  cartId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Cart', 
+    required: true 
+  },
   cartItems: [{
-    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Products', required: true },
-    quantity: { type: Number, required: true },
-    price: { type: Number, required: true }
+    productId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Products', 
+      required: true 
+    },
+    quantity: { 
+      type: Number, 
+      required: true 
+    },
+    price: { 
+      type: Number, 
+      required: true 
+    },
+    color: { 
+      type: String, 
+      required: true 
+    },
+    size: { 
+      type: String, 
+      required: true 
+    },
   }],
-  shippingAddress: { type: mongoose.Schema.Types.ObjectId, ref: 'Address', required: true },
-  totalPrice: { type: Number, required: true },
-  couponCode: { type: String },
-  status: { type: String, default: 'Pending' }
+  shippingAddress: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Address', 
+    required: true 
+  },
+  totalPrice: { 
+    type: Number, 
+    required: true 
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
+  },
 });
-
 
 const Checkout = mongoose.model('Checkout', checkoutSchema);
 
