@@ -27,11 +27,11 @@ const checkoutSchema = new mongoose.Schema({
     },
     color: { 
       type: String, 
-      required: true 
+      required: false 
     },
     size: { 
       type: String, 
-      required: true 
+      required: false
     },
   }],
   shippingAddress: { 
