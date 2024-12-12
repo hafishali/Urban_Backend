@@ -13,5 +13,8 @@ router.get('/products/category/:categoryId', productController.getProductsByCate
 
 router.get('/products/category/:categoryId/subcategory/:subcategoryId', productController.getProductsByCategoryAndSubcategoryId);
 
+// Search products by name
+router.get('/products/search', productController.searchProductsByName);
+
 
 module.exports = router;

@@ -3,6 +3,7 @@ const Address = require('../../../Models/User/AddressModel');
 const Product = require('../../../Models/Admin/ProductModel');
 
 // Place an order
+// Place an order
 exports.placeOrder = async (req, res) => {
   const { userId, addressId, products, paymentMethod } = req.body;
 
@@ -25,6 +26,15 @@ exports.placeOrder = async (req, res) => {
       if (!product.color || !product.size) {
         return res.status(400).json({ message: `Color and size are required for product ID ${product.productId}` });
       }
+
+      // Check stock availability
+      if (productData.stock < product.quantity) {
+        return res.status(400).json({ message: `Insufficient stock for product ID ${product.productId}` });
+      }
+
+      // Deduct stock
+      productData.stock -= product.quantity;
+      await productData.save();
 
       validatedProducts.push({
         productId: productData._id,
@@ -53,6 +63,7 @@ exports.placeOrder = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 // Get orders by user
 exports.getUserOrders = async (req, res) => {
