@@ -3,14 +3,14 @@ const fs = require('fs');
 
 // create a new category
 exports.createCategory = async (req, res) => {
-        const { name,description } = req.body;
+        const { name,description, isActive } = req.body;
 
         if(!req.file){
             return res.status(400).json({ message: 'Category image is required'});
         }
         try {
             const newCategory = new Category(
-                { name: name, image: req.file.filename, description: description }
+                { name: name, image: req.file.filename,isActive: isActive === undefined ? true : isActive,  description: description }
             );
             await newCategory.save();
             res.status(201).json({ message: 'Category created successfully' , category: newCategory});
@@ -30,6 +30,7 @@ exports.getCategories = async (req, res) => {
         const categoriesWithImageUrl = categories.map((category) => ({
             id: category._id,
             name: category.name,
+            isActive: category.isActive,
             description: category.description,
             imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${category.image}`
         }))
@@ -56,6 +57,7 @@ exports.getCategoryById = async (req, res)=> {
         const categoryWithImageUrl = {
             id: category._id,
             name: category.name,
+            isActive: category.isActive,
             description: category.description,
             imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${category.image}`
         };
@@ -69,7 +71,7 @@ exports.getCategoryById = async (req, res)=> {
 // update category
 exports.updateCategory = async (req, res) => {
         const { id } = req.params;
-        const { name,description } = req.body;
+        const { name,description, isActive} = req.body;
         try {
             const category = await Category.findById(id);
 
@@ -80,6 +82,12 @@ exports.updateCategory = async (req, res) => {
             if(name) category.name = name;
 
             if(description) category.description = description;
+
+          // Toggle or set isActive if provided
+        if (isActive !== undefined) {
+            category.isActive = isActive === 'true' || isActive === true; // Convert to boolean
+        }
+
             if (req.file) {
                 // delete the old image
                 const oldImagePath = `./uploads/category/${category.image};`

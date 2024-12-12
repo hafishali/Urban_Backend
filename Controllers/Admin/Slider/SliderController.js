@@ -3,7 +3,7 @@ const fs = require('fs');
 
 // create new slider
 exports.createSlider = async (req, res) => {
-    const { title, link } = req.body;
+    const { title, link, category, label } = req.body;
 
     if(!req.file) {
         return res.status(400).json({ message: "Please upload a image" });
@@ -13,6 +13,8 @@ exports.createSlider = async (req, res) => {
         const slider = new Slider({
             title,
             link,
+            category,
+            label,
             image: req.file.filename,
             });
             await slider.save();
@@ -35,7 +37,8 @@ exports.getAllSliders = async (req, res) => {
 // update a slider
 exports.updateSlider = async (req, res) => {
     const { id } = req.params;
-    const { title, link, isActive } = req.body;
+  
+    const { title, link, category, label, isActive } = req.body;
 
     try {
         const slider = await Slider.findById(id);
@@ -46,11 +49,11 @@ exports.updateSlider = async (req, res) => {
         // Update title and link if provided
         slider.title = title || slider.title;
         slider.link = link || slider.link;
+        slider.category = category || slider.category;
+        slider.label = label || slider.label;
+        slider.isActive = isActive !== undefined ? isActive : slider.isActive;
 
-        // Update isActive if provided in the request
-        if (typeof isActive !== 'undefined') {
-            slider.isActive = isActive;
-        }
+        
 
         // Update image if a new one is uploaded
         if (req.file) {

@@ -7,16 +7,25 @@ const sliderSchema = new mongoose.Schema({
     },
     image:{
         type:String,
-        required:true,
+        
     },
     link: {
         type: String,
-        required: true,
+        
         validate: {
             validator: function (v) {
                 return /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w.-]*)*\/?$/.test(v);
             },
         },
+    },
+    category: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Category", // Reference to Category model
+          // If sliders must have a category
+    },
+    label: {
+        type: String,
+         // Ensure label is always present
     },
     isActive: {
         type: Boolean,
