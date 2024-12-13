@@ -35,10 +35,10 @@ exports.createCheckout = async (req, res) => {
         productId: item.productId._id,
         quantity: item.quantity,
         price: item.price,
-        color: item.productId.color, // Include color from product
-        size: item.productId.size,   // Include size from product
+        color: item.color, // Include color from product
+        size: item.size,   // Include size from product
       })),
-      shippingAddress: address._id,
+      addressId: address._id,
       totalPrice,
     });
 
@@ -63,11 +63,11 @@ exports.getCheckoutById = async (req, res) => {
   try {
     const checkout = await Checkout.findById(req.params.id)
       .populate('userId', 'name email') // Populate user info
-      .populate('shippingAddress') // Populate address details
+      .populate('addressId', 'name number address landmark city landmark state addressType') // Populate address details
       .populate({
-        path: 'cartItems.productId', // Populate the product details in the cartItems
-        model: 'Products', // Ensure the correct model name is used (Products)
-        select: 'title offerPrice description images color size', // Include color and size
+        path: 'cartItems.productId', 
+        model: 'Products', 
+        select: 'title offerPrice description images color size', 
       });
 
     if (!checkout) {
@@ -79,6 +79,7 @@ exports.getCheckoutById = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 // Get All Checkouts for a User
 exports.getUserCheckouts = async (req, res) => {

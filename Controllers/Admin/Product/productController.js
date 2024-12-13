@@ -4,16 +4,32 @@ const Product = require('../../../Models/Admin/ProductModel');
 exports.addProduct = async (req, res) => {
   try {
     const imagePaths = req.files ? req.files.map((file) => file.path) : []; 
-    const newProduct = new Product({
-      ...req.body, 
-      images: imagePaths,
+    
+    // Calculate total stock
+    const colors = req.body.colors || [];
+    let totalStock = 0;
+
+    colors.forEach(color => {
+      if (color.sizes) {
+        color.sizes.forEach(size => {
+          totalStock += parseInt(size.stock || 0, 10);
+        });
+      }
     });
+
+    const newProduct = new Product({
+      ...req.body,
+      images: imagePaths,
+      totalStock, // Set calculated stock
+    });
+
     const savedProduct = await newProduct.save();
     res.status(201).json({ message: "Product added successfully", product: savedProduct });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
  
 // Get all products
 exports.getAllProducts = async (req, res) => {
@@ -45,17 +61,55 @@ exports.updateProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
+
+    // Get existing images and handle file uploads
     const existingImages = product.images || [];
     const newImages = req.files ? req.files.map((file) => file.path) : [];
     if (existingImages.length + newImages.length > 5) {
       return res.status(400).json({ message: "Cannot have more than 5 images for a product" });
     }
+
+    // Update product details (text fields, features, etc.)
+    const updatedProductData = {
+      ...req.body,
+      images: [...existingImages, ...newImages],
+    };
+
+    // Update colors, sizes, and stock
+    if (req.body.colors && Array.isArray(req.body.colors)) {
+      const updatedColors = req.body.colors.map(color => {
+        // For each color, make sure sizes and stock are present
+        if (color.sizes && Array.isArray(color.sizes)) {
+          const updatedSizes = color.sizes.map(size => {
+            // Ensure that each size has the correct stock value
+            return {
+              size: size.size,
+              stock: size.stock,
+            };
+          });
+          return {
+            color: color.color,
+            sizes: updatedSizes,
+          };
+        }
+        return color;
+      });
+
+      // Calculate total stock based on the updated color/size stock values
+      const totalStock = updatedColors.reduce((total, color) => {
+        const colorStock = color.sizes.reduce((sizeTotal, size) => sizeTotal + size.stock, 0);
+        return total + colorStock;
+      }, 0);
+
+      // Add the total stock to the product data
+      updatedProductData.stock = totalStock;
+      updatedProductData.colors = updatedColors;
+    }
+
+    // Update the product in the database
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      {
-        ...req.body,
-        images: [...existingImages, ...newImages],
-      },
+      updatedProductData,
       { new: true }
     );
 
@@ -64,6 +118,7 @@ exports.updateProduct = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // Delete a specific image by name
 exports.deleteProductImage = async (req, res) => {
