@@ -32,6 +32,7 @@ const productSchema = new mongoose.Schema({
     occasion: { type: String, default: null },
     innerLining: { type: String, default: null },
   },
+  createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Products', productSchema);
