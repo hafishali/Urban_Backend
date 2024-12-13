@@ -27,14 +27,14 @@ const checkoutSchema = new mongoose.Schema({
     },
     color: { 
       type: String, 
-      required: false 
+      required: true 
     },
     size: { 
       type: String, 
-      required: false
+      required: true
     },
   }],
-  shippingAddress: { 
+  addressId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Address', 
     required: true 

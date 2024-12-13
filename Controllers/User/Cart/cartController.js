@@ -23,7 +23,7 @@ exports.addToCart = async (req, res) => {
 
     // Check if the product with the same color and size already exists in the cart
     const existingItem = cart.items.find(
-      (item) => 
+      (item) =>
         item.productId.toString() === productId &&
         item.color === color &&
         item.size === size
@@ -37,7 +37,8 @@ exports.addToCart = async (req, res) => {
         quantity,
         price: product.offerPrice, // Use `offerPrice` from the product schema
         color,
-        size
+        size,
+        features: product.features, // Add product features to the cart item
       });
     }
 
@@ -48,17 +49,28 @@ exports.addToCart = async (req, res) => {
   }
 };
 
-// Get cart for a user
+// Get cart for a user with product details
 exports.getCartByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const cart = await Cart.findOne({ userId }).populate('items.productId');
+    const cart = await Cart.findOne({ userId }).populate({
+      path: 'items.productId',
+      populate: { path: 'category subcategory', select: 'name title' }, // Include category and subcategory details
+    });
+
     if (!cart) {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    res.status(200).json(cart);
+    const enrichedCart = cart.items.map((item) => {
+      return {
+        ...item.toObject(),
+        features: item.productId?.features || {}, // Include features in the response
+      };
+    });
+
+    res.status(200).json({ ...cart.toObject(), items: enrichedCart });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
