@@ -1,8 +1,8 @@
 const Order = require('../../../Models/User/OrderModel');
 const Address = require('../../../Models/User/AddressModel');
 const Product = require('../../../Models/Admin/ProductModel');
+const generateNumericOrderId = require('../../../utils/generateNumericOrderId');
 
-// Place an order
 // Place an order
 exports.placeOrder = async (req, res) => {
   const { userId, addressId, products, paymentMethod } = req.body;
@@ -47,8 +47,12 @@ exports.placeOrder = async (req, res) => {
       totalPrice += product.quantity * productData.offerPrice;
     }
 
+    // Generate unique numeric order ID
+    const orderId = await generateNumericOrderId();
+
     // Create the order
     const order = new Order({
+      orderId, // Unique numeric ID
       userId,
       addressId,
       products: validatedProducts,
