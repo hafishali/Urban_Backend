@@ -3,30 +3,60 @@ const Product = require('../../../Models/Admin/ProductModel');
 // Add a new product
 exports.addProduct = async (req, res) => {
   try {
-    const imagePaths = req.files ? req.files.map((file) => file.path) : []; 
+    // Process uploaded image paths
+    const imagePaths = req.files ? req.files.map((file) => file.path) : [];
     
-    // Calculate total stock
-    const colors = req.body.colors || [];
-    let totalStock = 0;
+    // Robust colors parsing with fallback and validation
+    let colors = [];
+    try {
+      colors = typeof req.body.colors === "string" 
+        ? JSON.parse(req.body.colors) 
+        : (req.body.colors || []);
+    } catch (parseError) {
+      return res.status(400).json({
+        error: "Invalid colors format",
+        details: parseError.message
+      });
+    }
 
-    colors.forEach(color => {
-      if (color.sizes) {
-        color.sizes.forEach(size => {
-          totalStock += parseInt(size.stock || 0, 10);
-        });
-      }
-    });
+    // Validate colors structure
+    const validatedColors = colors.map(color => ({
+      color: color.color || '',
+      sizes: (color.sizes || []).map(size => ({
+        size: size.size || '',
+        stock: parseInt(size.stock || 0, 10)
+      }))
+    }));
 
+    // Calculate total stock from sizes
+    const totalStock = validatedColors.reduce((total, color) => 
+      total + color.sizes.reduce((colorTotal, size) => colorTotal + size.stock, 0)
+    , 0);
+
+    // Create the new product
     const newProduct = new Product({
       ...req.body,
       images: imagePaths,
-      totalStock, // Set calculated stock
+      colors: validatedColors,
+      totalStock,
     });
 
     const savedProduct = await newProduct.save();
-    res.status(201).json({ message: "Product added successfully", product: savedProduct });
+
+    // Respond with success message
+    res.status(201).json({
+      message: "Product added successfully",
+      product: savedProduct,
+    });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("Error adding product:", error);
+    
+    // More detailed error response
+    res.status(400).json({
+      error: "Product creation failed",
+      details: error.message,
+      validationErrors: error.errors ? Object.keys(error.errors) : []
+    });
   }
 };
 
