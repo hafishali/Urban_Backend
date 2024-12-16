@@ -92,31 +92,24 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Get existing images and handle file uploads
     const existingImages = product.images || [];
     const newImages = req.files ? req.files.map((file) => file.path) : [];
     if (existingImages.length + newImages.length > 5) {
       return res.status(400).json({ message: "Cannot have more than 5 images for a product" });
     }
 
-    // Update product details (text fields, features, etc.)
     const updatedProductData = {
       ...req.body,
       images: [...existingImages, ...newImages],
     };
 
-    // Update colors, sizes, and stock
     if (req.body.colors && Array.isArray(req.body.colors)) {
       const updatedColors = req.body.colors.map(color => {
-        // For each color, make sure sizes and stock are present
         if (color.sizes && Array.isArray(color.sizes)) {
-          const updatedSizes = color.sizes.map(size => {
-            // Ensure that each size has the correct stock value
-            return {
-              size: size.size,
-              stock: size.stock,
-            };
-          });
+          const updatedSizes = color.sizes.map(size => ({
+            size: size.size,
+            stock: size.stock,
+          }));
           return {
             color: color.color,
             sizes: updatedSizes,
@@ -125,22 +118,20 @@ exports.updateProduct = async (req, res) => {
         return color;
       });
 
-      // Calculate total stock based on the updated color/size stock values
+      // Calculate total stock
       const totalStock = updatedColors.reduce((total, color) => {
         const colorStock = color.sizes.reduce((sizeTotal, size) => sizeTotal + size.stock, 0);
         return total + colorStock;
       }, 0);
 
-      // Add the total stock to the product data
-      updatedProductData.stock = totalStock;
       updatedProductData.colors = updatedColors;
+      updatedProductData.totalStock = totalStock; // Update total stock
     }
 
-    // Update the product in the database
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       updatedProductData,
-      { new: true }
+      { new: true } // Return the updated document
     );
 
     res.status(200).json({ message: "Product updated successfully", product: updatedProduct });
@@ -148,6 +139,7 @@ exports.updateProduct = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 
 // Delete a specific image by name
