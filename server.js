@@ -20,7 +20,7 @@ const profileController = require('./Routes/User/Profile/profileRoute')
 const checkoutController=require('./Routes/User/Checkout/checkoutRoute')
 const userAdminController=require('./Routes/Admin/Users/userRoute')
 const orderController = require('./Routes/User/Order/OrderRoute')
-
+const adminOrderRoutes = require('./Routes/Admin/OrderList/orderListRoutes')
 
 
 const path = require('path')
@@ -41,6 +41,7 @@ app.use('/admin/slider',sliderRoutes)
 app.use('/admin/coupon',couponRoutes)
 app.use('/admin/products',productRoutes)
 app.use('/admin/users',userAdminController)
+app.use('/admin/orderlist', adminOrderRoutes)
 
 
 // USER ROUTES
