@@ -7,7 +7,7 @@ const productSchema = new mongoose.Schema({
   actualPrice: { type: Number, required: [true, "Actual price is required"] },
   discount: { type: Number, default: 0 },
   offerPrice: { type: Number, required: [true, "Offer price is required"] },
-  deliveryCharge:{ type:String , required:[ true,"Delivery charge is required"]},
+  // deliveryCharge:{ type:String , required:[ true,"Delivery charge is required"]},
   description: { type: String, required: [true, "Product description is required"] },
   images: [{ type: String, required: [true, "At least one product image is required"] }],
   manufacturerName: { type: String, required: [true, "Manufacturer name is required"] },
