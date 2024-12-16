@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const category = require('./CategoryModel');
+
 
 const couponSchema = new mongoose.Schema({
     title: {
@@ -39,11 +39,8 @@ const couponSchema = new mongoose.Schema({
         required: true,
         validate: {
             validator: function (value) {
-                if(this.discountType === 'percentage'){
-                    return value >= 0 && value <= 100;
-                }
-                return true;
-            },
+                    return this.discountType === 'percentage' ? value >= 0 && value <= 100 : value >= 0;
+                },
             message: 'For percentage, Discount value must be between 0 and 100',
         }
     },
@@ -53,7 +50,7 @@ const couponSchema = new mongoose.Schema({
         default: 'active',
     }
 
-});
+}, {timestamps: true });
 
 const Coupon = mongoose.model('Coupon', couponSchema);
 module.exports = Coupon
