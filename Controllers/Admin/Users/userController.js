@@ -1,5 +1,6 @@
 const User = require('../../../Models/User/UserModel');
 const Address = require('../../../Models/User/AddressModel'); // Import Address model
+const Order = require('../../../Models/User/OrderModel');
 
 // Get user profile by id
 exports.getProfile = async (req, res) => {
@@ -10,7 +11,7 @@ exports.getProfile = async (req, res) => {
 }
     try {
         // Find user details
-        const user = await User.findById(userId); 
+        const user = await User.findById(userId).select('-password'); 
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
@@ -18,20 +19,19 @@ exports.getProfile = async (req, res) => {
         // Find all addresses associated with the user
         const addresses = await Address.find({ userId: userId });
 
+        // find all orders associated with the user
+        const orders = await Order.find({userId: userId});
+
         res.status(200).json({
             user: {
                 id: user._id, // Include the user ID
                 name: user.name,
                 phone: user.phone,
                 email: user.email,
-                dob: user.dob,
-                gender: user.gender,
-                address: user.address,
-                city: user.city,
-                district: user.district,
-                state: user.state,
-                pincode: user.pincode,
+                status: user.status,
+                isFavorite: user.isFavorite,
                 addresses: addresses, // Include all addresses
+                orders: orders, // include all orders
             },
         });
     } catch (err) {
@@ -56,13 +56,8 @@ exports.getAllUsers = async (req, res) => {
                     phone: user.phone,
                     status: user.status,
                     email: user.email,
-                    dob: user.dob,
-                    gender: user.gender,
-                    address: user.address,
-                    city: user.city,
-                    district: user.district,
-                    state: user.state,
-                    pincode: user.pincode,
+                    status: user.status,
+                    isFavorite: user.isFavorite, 
                     addresses: addresses,
                 };
             })
@@ -140,6 +135,28 @@ exports.toggleUserStatus = async (req, res) => {
     res.status(500).json({message:'Server error', error: err.message});
   }
 }
+
+// toggleFavorite
+exports.toggleFavorite = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Toggle the favorite status
+    user.isFavorite = !user.isFavorite;
+    await user.save();
+
+    const statusMessage = user.isFavorite ? 'added to favorites' : 'removed from favorites';
+    res.status(200).json({ message: `User successfully ${statusMessage}` });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+ 
 
 
   // delete a user

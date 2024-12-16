@@ -25,6 +25,7 @@ const adminOrderRoutes = require('./Routes/Admin/Order/orderRoute')
 const deliveryFeeRoutes = require('./Routes/Admin/DeliveryFee/deliveryFeeRoute')
 
 
+
 const path = require('path')
 
 const app = express()
@@ -45,6 +46,7 @@ app.use('/admin/products',productRoutes)
 app.use('/admin/users',userAdminRoutes)
 app.use('/admin/orderlist', adminOrderRoutes)
 app.use('/admin/delivery-fee',deliveryFeeRoutes)
+
 
 // USER ROUTES
 app.use('/user/category',userCategoryRoutes)

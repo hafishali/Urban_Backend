@@ -41,6 +41,10 @@ const userSchema = new mongoose.Schema({
     role: {
         type: String,
         default: 'user',
+    },
+    isFavorite: {
+        type: Boolean,
+        default: false,
     }
 }, { timestamps: true });
 
