@@ -5,6 +5,7 @@ const orderController = require('../../../Controllers/User/Order/orderController
 // Place an order
 router.post('/create', orderController.placeOrder);
 
+
 // Get orders for a user
 router.get('/view/:userId', orderController.getUserOrders);
 
