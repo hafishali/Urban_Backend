@@ -61,3 +61,21 @@ exports.getProductsByCategoryAndSubcategoryId = async (req, res) => {
       res.status(400).json({ error: error.message });
     }
   };
+
+// Search products by title
+exports.searchProductsByName = async (req, res) => {
+  try {
+    const { name } = req.query; // Get the search term from query parameters
+    const products = await Product.find({ title: { $regex: name, $options: 'i' } }) // Case-insensitive search
+      .populate('category')
+      .populate('subcategory');
+
+    if (products.length === 0) {
+      return res.status(404).json({ message: "No products found matching the search criteria" });
+    }
+
+    res.status(200).json(products);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};

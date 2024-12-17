@@ -15,6 +15,9 @@ router.get('/view-all', userController.getAllUsers);
 // toggle user
 router.patch('/toggle/:userId', jwtVerify(['admin']), userController.toggleUserStatus)
 
+// toggle favorite
+router.patch('/favorite/:userId', jwtVerify(['admin']), userController.toggleFavorite);
+
 // delete user
 router.delete('/delete/:userId',jwtVerify(['admin']), userController.deleteUser)
 // search user

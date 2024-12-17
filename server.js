@@ -23,6 +23,18 @@ const orderController = require('./Routes/User/Order/OrderRoute')
 const DashboardController=require('./Routes/Admin/Dashboard/DashboardRoute')
 const adminProfileController=require('./Routes/Admin/Profile/ProfileRoute')
 
+const userCartRoutes = require('./Routes/User/Cart/cartRoute')
+const wishlistRoutes = require('./Routes/User/Wishlist/wishlistRoute')
+const addressRoutes = require('./Routes/User/Address/addressRoute')
+const userRoutes = require('./Routes/User/Auth/UserAuth')
+const profileRoutes = require('./Routes/User/Profile/profileRoute')
+const checkoutRoutes=require('./Routes/User/Checkout/checkoutRoute')
+const userAdminRoutes=require('./Routes/Admin/Users/userRoute')
+const orderRoutes = require('./Routes/User/Order/OrderRoute')
+const reviewRoutes  = require('./Routes/User/Review/reviewRoute')
+const adminOrderRoutes = require('./Routes/Admin/Order/orderRoute')
+const deliveryFeeRoutes = require('./Routes/Admin/DeliveryFee/deliveryFeeRoute')
+
 
 const path = require('path')
 
@@ -44,6 +56,10 @@ app.use('/admin/products',productRoutes)
 app.use('/admin/users',userAdminController)
 app.use('/admin/dashboard',DashboardController)
 app.use('/admin/profile',adminProfileController)
+app.use('/admin/users',userAdminRoutes)
+app.use('/admin/orderlist', adminOrderRoutes)
+app.use('/admin/delivery-fee',deliveryFeeRoutes)
+
 
 
 // USER ROUTES
@@ -51,13 +67,14 @@ app.use('/user/category',userCategoryRoutes)
 app.use('/user/subCategory',userSubCategoryRoutes)
 app.use('/user/products',userProductRoutes)
 app.use('/user/slider',userSliderRoutes)
-app.use('/user/cart',userCartController)
-app.use('/user/wishlist',wishlistController)
-app.use('/user/address',addressController)
-app.use('/user/auth',userController)
-app.use('/user/profile',profileController)
-app.use('/user/checkout',checkoutController)
-app.use('/user/order',orderController)
+app.use('/user/cart',userCartRoutes)
+app.use('/user/wishlist',wishlistRoutes)
+app.use('/user/address',addressRoutes)
+app.use('/user/auth',userRoutes)
+app.use('/user/profile',profileRoutes)
+app.use('/user/checkout',checkoutRoutes)
+app.use('/user/order',orderRoutes)
+app.use('/user/review',reviewRoutes)
 
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))

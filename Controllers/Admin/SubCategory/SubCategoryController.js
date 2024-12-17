@@ -3,12 +3,12 @@ const fs = require('fs');
 
 // create subcategory
 exports.createSubCategory=async(req,res)=>{
-    const{title,category}=req.body
+    const{title,category, isActive}=req.body
         if(!req.file){
             return res.status(400).json({message:"SubCategory Image is required"})
         }
     try {
-       const newSubCategory=new SubCategory({title,category,image: req.file.filename}) 
+       const newSubCategory=new SubCategory({title,category,isActive: isActive === undefined ? true : isActive, image: req.file.filename}) 
         await newSubCategory.save()
         res.status(201).json({ message: 'SubCategory created successfully' , SubCategory: newSubCategory});
     } catch (error) {
@@ -24,6 +24,7 @@ exports.getSubCategories = async (req, res) => {
         const SubcategoriesWithImageUrl = subcategory.map((subcategories) => ({
             id: subcategories._id,
             title: subcategories.title,
+            isActive: subcategories.isActive,
             MainCategory: {
                 id: subcategories.category?._id,
                 name: subcategories.category?.name,
@@ -51,6 +52,7 @@ exports.getSubCategoryById = async (req, res)=> {
         const SubcategoryWithImageUrl = {
             id: subcategory._id,
             title: subcategory.title,
+            isActive: subcategory.isActive,
             MainCategory: {
                 id: subcategory.category?._id,
                 name: subcategory.category?.name,
@@ -80,6 +82,10 @@ exports.updateSubCategory = async (req, res) => {
             }
             updates.image = req.file.filename;
         }
+        if (updates.isActive !== undefined) {
+            updates.isActive = updates.isActive === 'true' || updates.isActive === true; // Convert to boolean
+          }
+
         const updatedSubCategory = await SubCategory.findByIdAndUpdate(id, updates, {
             new: true, 
             runValidators: true, 
@@ -128,6 +134,10 @@ exports.searchSubCategory = async (req, res) => {
         if (name) {
             query.title = { $regex: name, $options: 'i' }; // Case-insensitive regex
         }
+
+        if (isActive !== undefined) {
+            query.isActive = isActive === 'true' || isActive === true; // Convert to boolean
+          }
 
         const SubCategoryData = await SubCategory.find(query).populate('category');
 

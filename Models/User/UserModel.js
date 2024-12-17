@@ -41,7 +41,12 @@ const userSchema = new mongoose.Schema({
     role: {
         type: String,
         default: 'user',
-    }
+    },
+    isFavorite: {
+        type: Boolean,
+        default: false,
+    },
+    addresses: [{ type: mongoose.Schema.Types.ObjectId, ref:'Address' }]
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);

@@ -31,10 +31,10 @@ const checkoutSchema = new mongoose.Schema({
     },
     size: { 
       type: String, 
-      required: true 
+      required: true
     },
   }],
-  shippingAddress: { 
+  addressId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Address', 
     required: true 
