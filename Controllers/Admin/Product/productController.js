@@ -60,15 +60,28 @@ exports.addProduct = async (req, res) => {
 };
 
  
-// Get all products
+
+// Get all products with optional filtering by category
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate('category').populate('subcategory');
+    const { category } = req.query; // Expect categories as a comma-separated string
+
+    const filter = {};
+    if (category) {
+      const categoryArray = category.split(','); // Convert comma-separated string to an array
+      filter.category = { $in: categoryArray }; // Filter by multiple categories
+    }
+
+    const products = await Product.find(filter)
+      .populate('category')
+      .populate('subcategory');
+
     res.status(200).json(products);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // Get a single product by ID
 exports.getProductById = async (req, res) => {
