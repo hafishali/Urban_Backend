@@ -5,10 +5,12 @@ const jwtVerify=require('../../../Middlewares/jwtMiddleware')
 
 
 // Cart routes
+
 router.post('/add', jwtVerify(['user']), cartController.addToCart);
 router.get('/view-cart/:userId', jwtVerify(['user']), cartController.getCartByUserId);
 router.delete('/remove', jwtVerify(['user']), cartController.removeFromCart);
 router.patch('/update', jwtVerify(['user']), cartController.updateCartItemQuantity);
 router.delete('/clear/:userId', jwtVerify(['user']), cartController.clearCart);
+
 
 module.exports = router;

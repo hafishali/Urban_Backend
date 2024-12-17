@@ -5,17 +5,19 @@ const jwtVerify=require('../../../Middlewares/jwtMiddleware')
 
 
 // Get user profile
-router.get('/view', userController.getProfile);
+router.get('/view/:userId', userController.getProfile);
 
 router.get('/view-all', userController.getAllUsers);
 
-// Update user profile
-router.patch('/update',  userController.updateProfile);
+// // Update user profile
+// router.patch('/update/:userId',jwtVerify(['admin']),  userController.updateProfile);
 
-// suspend user
-router.patch('/suspend/:userId', jwtVerify(['admin']), userController.suspendUser)
-// active user
-router.patch('/active/:userId', jwtVerify(['admin']), userController.activeUser)
+// toggle user
+router.patch('/toggle/:userId', jwtVerify(['admin']), userController.toggleUserStatus)
+
+// toggle favorite
+router.patch('/favorite/:userId', jwtVerify(['admin']), userController.toggleFavorite);
+
 // delete user
 router.delete('/delete/:userId',jwtVerify(['admin']), userController.deleteUser)
 // search user
