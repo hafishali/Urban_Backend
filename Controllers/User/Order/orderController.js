@@ -2,6 +2,7 @@ const Order = require('../../../Models/User/OrderModel');
 const Address = require('../../../Models/User/AddressModel');
 const Product = require('../../../Models/Admin/ProductModel');
 const generateNumericOrderId = require('../../../utils/generateNumericOrderId');
+const Cart = require('../../../Models/User/CartModel')
 
 // Place an order
 // exports.placeOrder = async (req, res) => {
@@ -154,13 +155,28 @@ exports.placeOrder = async (req, res) => {
 
     await order.save();
 
+    // Remove the ordered items from the user's cart
+    const cart = await Cart.findOne({ userId });
+    if (cart) {
+      cart.items = cart.items.filter(
+        (cartItem) =>
+          !products.some(
+            (orderProduct) =>
+              orderProduct.productId === cartItem.productId &&
+              orderProduct.color === cartItem.color &&
+              orderProduct.size === cartItem.size
+          )
+      );
+
+      // Save the updated cart
+      await cart.save();
+    }
+
     res.status(201).json({ message: "Order placed successfully", order });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
-
 
 
 
