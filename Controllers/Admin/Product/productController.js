@@ -18,7 +18,6 @@ exports.addProduct = async (req, res) => {
         details: parseError.message
       });
     }
-
     // Validate colors structure
     const validatedColors = colors.map(color => ({
       color: color.color || '',
@@ -98,6 +97,58 @@ exports.getProductById = async (req, res) => {
 };
 
 // Update a product by ID with image handling
+// exports.updateProduct = async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id);
+//     if (!product) {
+//       return res.status(404).json({ message: "Product not found" });
+//     }
+
+//     const existingImages = product.images || [];
+//     const newImages = req.files ? req.files.map((file) => file.path) : [];
+//     if (existingImages.length + newImages.length > 5) {
+//       return res.status(400).json({ message: "Cannot have more than 5 images for a product" });
+//     }
+
+//     const updatedProductData = {
+//       ...req.body,
+//       images: [...existingImages, ...newImages],
+//     };
+
+//     if (req.body.colors && Array.isArray(req.body.colors)) {
+//       const updatedColors = req.body.colors.map(color => {
+//         if (color.sizes && Array.isArray(color.sizes)) {
+//           const updatedSizes = color.sizes.map(size => ({
+//             size: size.size,
+//             stock: size.stock,
+//           }));
+//           return {
+//             color: color.color,
+//             sizes: updatedSizes,
+//           };
+//         }
+//         return color;
+//       });
+
+//       // Calculate total stock
+//       const totalStock = updatedColors.reduce((total, color) => {
+//         const colorStock = color.sizes.reduce((sizeTotal, size) => sizeTotal + size.stock, 0);
+//         return total + colorStock;
+//       }, 0);
+
+//       updatedProductData.colors = updatedColors;
+//       updatedProductData.totalStock = totalStock; // Update total stock
+//     }
+//     const updatedProduct = await Product.findByIdAndUpdate(
+//       req.params.id,
+//       updatedProductData,
+//       { new: true } // Return the updated document
+//     );
+//     res.status(200).json({ message: "Product updated successfully", product: updatedProduct });
+//   } catch (error) {
+//     res.status(400).json({ error: error.message });
+//   }
+// };
 exports.updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -116,29 +167,41 @@ exports.updateProduct = async (req, res) => {
       images: [...existingImages, ...newImages],
     };
 
-    if (req.body.colors && Array.isArray(req.body.colors)) {
-      const updatedColors = req.body.colors.map(color => {
-        if (color.sizes && Array.isArray(color.sizes)) {
-          const updatedSizes = color.sizes.map(size => ({
-            size: size.size,
-            stock: size.stock,
-          }));
-          return {
-            color: color.color,
-            sizes: updatedSizes,
-          };
-        }
-        return color;
-      });
+    // Ensure `colors` field is parsed correctly
+    if (req.body.colors) {
+      let parsedColors;
 
-      // Calculate total stock
-      const totalStock = updatedColors.reduce((total, color) => {
-        const colorStock = color.sizes.reduce((sizeTotal, size) => sizeTotal + size.stock, 0);
-        return total + colorStock;
-      }, 0);
+      // Attempt to parse colors (handles case where it is a JSON string)
+      try {
+        parsedColors = typeof req.body.colors === "string" ? JSON.parse(req.body.colors) : req.body.colors;
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid colors format" });
+      }
 
-      updatedProductData.colors = updatedColors;
-      updatedProductData.totalStock = totalStock; // Update total stock
+      if (Array.isArray(parsedColors)) {
+        const updatedColors = parsedColors.map((color) => {
+          if (color.sizes && Array.isArray(color.sizes)) {
+            const updatedSizes = color.sizes.map((size) => ({
+              size: size.size,
+              stock: size.stock,
+            }));
+            return {
+              color: color.color,
+              sizes: updatedSizes,
+            };
+          }
+          return color;
+        });
+
+        // Calculate total stock from all colors and sizes
+        const totalStock = updatedColors.reduce((total, color) => {
+          const colorStock = color.sizes.reduce((sizeTotal, size) => sizeTotal + size.stock, 0);
+          return total + colorStock;
+        }, 0);
+
+        updatedProductData.totalStock = totalStock; // Update total stock in the product data
+        updatedProductData.colors = updatedColors;
+      }
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(
@@ -152,6 +215,7 @@ exports.updateProduct = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 
 

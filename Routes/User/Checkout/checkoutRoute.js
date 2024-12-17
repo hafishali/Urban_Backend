@@ -4,7 +4,7 @@ const checkoutController = require('../../../Controllers/User/Checkout/checkoutC
 const jwtVerify=require('../../../Middlewares/jwtMiddleware')
 
 // Create a new checkout
-router.post('/checkout',  checkoutController.createCheckout);
+router.post('/checkout', jwtVerify(['user']),  checkoutController.createCheckout);
 
 // Get a checkout by ID
 router.get('/checkout/:id', jwtVerify(['user']), checkoutController.getCheckoutById);
