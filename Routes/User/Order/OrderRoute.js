@@ -7,6 +7,7 @@ const jwtVerify=require('../../../Middlewares/jwtMiddleware')
 // Place an order
 router.post('/create', jwtVerify(['user']), orderController.placeOrder);
 
+
 // Get orders for a user
 router.get('/view/:userId', jwtVerify(['user']), orderController.getUserOrders);
 

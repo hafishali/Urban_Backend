@@ -55,7 +55,7 @@ exports.login = async(req,res)=>{
         const token = jwt.sign(
             { adminId: existingAdmin._id, role: existingAdmin.role },
             process.env.JWT_SECRET,
-            { expiresIn: '1d' } // Token expires in 1 hour
+            { expiresIn: '1d' } 
         );
         const responseAdmin = { email: existingAdmin.email, username: existingAdmin.username, role: existingAdmin.role }; // Assuming role exists in schema
         return res.status(200).json({
