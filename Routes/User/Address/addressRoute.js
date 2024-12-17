@@ -3,7 +3,6 @@ const addressController = require('../../../Controllers/User/Address/addressCont
 const router = express.Router();
 const jwtVerify=require('../../../Middlewares/jwtMiddleware')
 
-
 // Add a new address
 router.post('/add', jwtVerify(['user']), addressController.addAddress);
 
