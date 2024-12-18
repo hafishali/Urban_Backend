@@ -23,7 +23,7 @@ const orderRoutes = require('./Routes/User/Order/OrderRoute')
 const reviewRoutes  = require('./Routes/User/Review/reviewRoute')
 const adminOrderRoutes = require('./Routes/Admin/Order/orderRoute')
 const deliveryFeeRoutes = require('./Routes/Admin/DeliveryFee/deliveryFeeRoute')
-
+const invoiceRoutes = require('./Routes/Admin/Invoice/invoiceRoute');
 
 
 const path = require('path')
@@ -46,6 +46,7 @@ app.use('/admin/products',productRoutes)
 app.use('/admin/users',userAdminRoutes)
 app.use('/admin/orderlist', adminOrderRoutes)
 app.use('/admin/delivery-fee',deliveryFeeRoutes)
+app.use('/admin/invoice',invoiceRoutes)
 
 
 // USER ROUTES
