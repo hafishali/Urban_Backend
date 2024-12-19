@@ -2,7 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const uploadDirectory = './uploads/category'; 
+const uploadDirectory = './uploads/category';
 if (!fs.existsSync(uploadDirectory)) {
     fs.mkdirSync(uploadDirectory, { recursive: true });
 }
@@ -29,9 +29,9 @@ const fileFilter = (req, file, callback) => {
 const multerConfig = multer({
     storage,
     fileFilter,
-    limits: { 
-        fileSize: 3 * 1024 * 1024, 
-        files: 5 
+    limits: {
+        fileSize: 3 * 1024 * 1024,
+        files: 5
     }
 });
 

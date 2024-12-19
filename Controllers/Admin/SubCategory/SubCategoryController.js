@@ -29,9 +29,9 @@ exports.getSubCategories = async (req, res) => {
                 id: subcategories.category?._id,
                 name: subcategories.category?.name,
                 description: subcategories.category?.description,
-                imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategories.category?.image}`
+                imageUrl: subcategories.category?.image
             },
-            SubImageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategories.image}`
+            SubImageUrl: subcategories.image
         }))
         res.status(200).json(SubcategoriesWithImageUrl);
         // res.status(200).json(subcategory);
@@ -149,9 +149,9 @@ exports.searchSubCategory = async (req, res) => {
                 id: subcategory.category?._id,
                 name: subcategory.category?.name,
                 description: subcategory.category?.description,
-                imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategory.category?.image}`
+                imageUrl: subcategory.category?.image
             },
-            SubImageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategory.image}`
+            SubImageUrl: subcategory.image
         }));
 
         res.status(200).json(SubcategoriesWithImageUrl);

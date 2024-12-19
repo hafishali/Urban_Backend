@@ -32,7 +32,7 @@ exports.getCategories = async (req, res) => {
             name: category.name,
             isActive: category.isActive,
             description: category.description,
-            imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${category.image}`
+            imageUrl: category.image
         }))
         res.status(200).json(categoriesWithImageUrl);
     } catch (err) {
@@ -59,7 +59,7 @@ exports.getCategoryById = async (req, res)=> {
             name: category.name,
             isActive: category.isActive,
             description: category.description,
-            imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${category.image}`
+            imageUrl:category.image
         };
 
         res.status(200).json(categoryWithImageUrl);
@@ -152,7 +152,7 @@ exports.searchCategory = async (req, res) => {
             id: category._id,
             name: category.name,
             description: category.description,
-            imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${category.image}`
+            imageUrl: category.image
         }));
 
         res.status(200).json(categoriesWithImageUrl);
