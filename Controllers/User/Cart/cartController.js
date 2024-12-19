@@ -82,31 +82,51 @@ exports.getCartByUserId = async (req, res) => {
 
 
 // Remove an item from cart
+// Remove an item from cart
 exports.removeFromCart = async (req, res) => {
   try {
     const { userId, productId, color, size } = req.body;
+
+    if (!userId || !productId || !color || !size) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
 
     const cart = await Cart.findOne({ userId });
     if (!cart) {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    // Remove the specific item
-    cart.items = cart.items.filter(
+    // Debugging: Log cart items before removal
+    console.log("Cart Items Before Removal:", JSON.stringify(cart.items, null, 2));
+    console.log("Remove Request Data:", { productId, color, size });
+
+    // Remove the specific item by matching all fields
+    const filteredItems = cart.items.filter(
       (item) =>
-        item.productId &&
-        (item.productId.toString() !== productId ||
+        item.productId.toString() !== productId ||
         item.color !== color ||
-        item.size !== size)
+        item.size !== size
     );
+
+    // Check if the item was removed
+    if (filteredItems.length === cart.items.length) {
+      return res.status(404).json({ message: "Product not found in cart" });
+    }
+
+    cart.items = filteredItems;
+
+    // Debugging: Log cart items after removal
+    console.log("Cart Items After Removal:", JSON.stringify(cart.items, null, 2));
 
     // Save the updated cart
     await cart.save();
     res.status(200).json({ message: "Product removed from cart", cart });
   } catch (error) {
+    console.error("Error removing item from cart:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 // Update item quantity in cart
