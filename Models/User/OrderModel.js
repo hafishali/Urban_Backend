@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+
 const orderSchema = new mongoose.Schema({
   orderId: { type: Number, required: true, unique: true }, // Unique numeric order ID
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -12,7 +13,7 @@ const orderSchema = new mongoose.Schema({
       size: { type: String, required: true },
     },
   ],
-  totalPrice: { type: Number, required: true },
+  totalPrice: { type: Number, required: true, min: 0 },
   deliveryCharge: { type: Number, required: true },
   paymentMethod: {
     type: String,
@@ -24,7 +25,15 @@ const orderSchema = new mongoose.Schema({
     default: 'Pending',
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
   },
-  deliveryDate: { type: Date },
+  deliveryDate: {
+    type: Date,
+    validate: {
+      validator: function (value) {
+        return value >= this.createdAt;
+      },
+      message: 'Delivery date cannot be before order creation date.',
+    },
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

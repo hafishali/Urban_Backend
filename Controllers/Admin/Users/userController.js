@@ -173,6 +173,7 @@ exports.toggleFavorite = async (req, res) => {
       res.status(500).json({ message: 'Server error', error: err.message });
     }
   };
+  
   // search user
   exports.searchUsers = async (req, res) => {
     const { name, phone, email } = req.query;

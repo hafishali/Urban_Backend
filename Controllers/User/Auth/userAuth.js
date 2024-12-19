@@ -94,16 +94,26 @@ exports.login = async (req, res) => {
         if (!user) {
             return res.status(400).json({ message: 'User not found' });
         }
+
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
+
         const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-        res.status(200).json({ message: 'User logged in successfully', phone: user.phone, token: token });
+
+        // Include userId in the response
+        res.status(200).json({ 
+            message: 'User logged in successfully', 
+            userId: user._id, // Added userId
+            phone: user.phone, 
+            token: token 
+        });
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
 
 // otp for forget passsword
 exports.sendForgotPasswordOTP = async (req, res) => {
@@ -197,6 +207,7 @@ exports.resetPassword = async (req, res) => {
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
 // Google Login Callback
 exports.googleLoginCallback = (req, res, next) => {
     passport.authenticate('google', { session: false }, async (err, user, info) => {
