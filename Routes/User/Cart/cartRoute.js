@@ -14,3 +14,4 @@ router.delete('/clear/:userId', jwtVerify(['user']), cartController.clearCart);
 
 
 module.exports = router;
+// mnb
