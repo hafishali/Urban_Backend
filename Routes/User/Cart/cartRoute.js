@@ -11,3 +11,4 @@ router.delete('/clear/:userId', cartController.clearCart);
 router.post('/applyCoupon',cartController.applyCouponToCart)
 
 module.exports = router;
+// mnb
