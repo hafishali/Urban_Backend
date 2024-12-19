@@ -126,14 +126,7 @@ exports.createInvoice = async (req, res) => {
 // Search and fetch invoices
 exports.searchInvoices = async (req, res) => {
   try {
-    const {
-      customerName,
-      customerMobile,
-      status,
-      paymentId,
-      startDate,
-      endDate,
-    } = req.query;
+    const { customerName, customerMobile,status,paymentId, } = req.query;
 
     // Build a dynamic filter object
     const filter = {};
@@ -158,12 +151,7 @@ exports.searchInvoices = async (req, res) => {
       filter.paymentId = { $regex: paymentId, $options: 'i' };
     }
 
-    // Search by date range (createdAt)
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
-    }
+    
 
     // Fetch invoices based on the filter
     const invoices = await Invoice.find(filter)
@@ -180,3 +168,52 @@ exports.searchInvoices = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch invoices', error: err.message });
   }
 };
+
+
+// filter invoice
+exports.filterInvoices = async (req, res) => {
+    try {
+      const { status, startDate, endDate, dateType } = req.query;
+  
+      // Build a dynamic filter object for filtering
+      const filter = {};
+  
+      if (status) {
+        filter.status = status;
+      }
+
+      // Choose the date field to filter (createdAt or updatedAt)
+      const dateField = dateType === 'updated' ? 'updatedAt' : 'createdAt';
+
+      // Filter by specific date or date range
+    if (startDate || endDate) {
+    filter[dateField] = {}; // Initialize the date field filter
+  
+  
+       // If only one specific date is provided, match that exact date
+       if (startDate && !endDate) {
+        const startOfDay = new Date(startDate).setHours(0, 0, 0, 0); // Start of the day
+        const endOfDay = new Date(startDate).setHours(23, 59, 59, 999); // End of the day
+        filter[dateField].$gte = new Date(startOfDay);
+        filter[dateField].$lte = new Date(endOfDay);
+      }
+
+      // If both startDate and endDate are provided, filter within the range
+      if (startDate) filter[dateField].$gte = new Date(startDate);
+      if (endDate) filter[dateField].$lte = new Date(endDate);
+    }
+  
+      const invoices = await Invoice.find(filter)
+        .populate('userId', 'name phone')
+        .populate('products.productId', 'title')
+        .populate('address', 'address city state');
+  
+      res.status(200).json({
+        message: 'Filtered invoices fetched successfully',
+        invoices,
+      });
+    } catch (err) {
+      res.status(500).json({ message: 'Failed to filter invoices', error: err.message });
+    }
+  };
+  
