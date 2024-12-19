@@ -2,8 +2,14 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../../../Models/User/UserModel');
 const passport = require('passport');
+const NodeCache = require('node-cache');
+const otpGenerator = require('otp-generator');
+const axios = require('axios');
 
-// register a new user
+const cache = new NodeCache({ stdTTL: 300 });  //5 minutes expiry for otp
+const api_key=process.env.FACTOR_API_KEY
+
+// sending otp for registration
 exports.register = async (req,res) => {
     const { name, phone, password } = req.body;
     try {
@@ -11,23 +17,75 @@ exports.register = async (req,res) => {
         if (existingUser) {
             return res.status(400).json({ msg: 'Phone number already exists' });
         }
+
+        
+        const otp = otpGenerator.generate(6, { digits: true, upperCaseAlphabets: false, specialChars: false });
+
+        
         const hashedPassword = await bcrypt.hash(password, 10);
+
+        cache.set(phone, { name, phone, password: hashedPassword, otp });
+
+        const response = await axios.get(`https://2factor.in/API/V1/${api_key}/SMS/${phone}/AUTOGEN/OTP1`)
+        if (response.data.Status !== 'Success') {
+            return res.status(500).json({ message: 'Failed to send OTP. Try again later.' });
+        }
+        
+        console.log(`OTP ${otp} sent to phone: ${phone}`); // Log for debugging
+
+        return res.status(200).json({ message: 'OTP sent successfully' });
+        console.error(err.message);
+    } catch (err) {
+        res.status(500).json({ message: "server error", error: err.message})
+    }
+}
+
+// verify otp and register a user
+exports.verifyOTP = async (req, res) => {
+    const { phone, otp } = req.body;
+
+    try {
+        // Retrieve stored data from cache
+        const cachedData = cache.get(phone);
+        if (!cachedData) {
+            return res.status(400).json({ message: 'OTP  or ' });
+        }
+
+        // Verify the OTP with 2Factor API
+        const response = await axios.get(`https://2factor.in/API/V1/${api_key}/SMS/VERIFY3/${phone}/${otp}`);
+        if (response.data.Status !== 'Success') {
+            return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
+        }
+
+        // Save the user to MongoDB
         const newUser = new User({
-            name,
-            phone,
-            password: hashedPassword,
+            name: cachedData.name,
+            phone: cachedData.phone,
+            password: cachedData.password,
         });
         await newUser.save();
-        const token = jwt.sign({ userId: newUser._id, role:newUser.role }, process.env.JWT_SECRET, { expiresIn: '1d'});
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: newUser._id, role: newUser.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '1d' }
+        );
+
+        // Delete the temporary data from cache
+        cache.del(phone);
+
         return res.status(201).json({
             message: 'User registered successfully',
             user: { name: newUser.name, phone: newUser.phone },
             token,
         });
     } catch (err) {
-        res.status(500).json({ message: "server error", error: err.message})
+        console.error(err.message);
+        return res.status(500).json({ message: 'Server error', error: err.message });
     }
-}
+};
+
 // Login a user
 exports.login = async (req, res) => {
     const { phone, password } = req.body;
@@ -44,6 +102,99 @@ exports.login = async (req, res) => {
         res.status(200).json({ message: 'User logged in successfully', phone: user.phone, token: token });
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// otp for forget passsword
+exports.sendForgotPasswordOTP = async (req, res) => {
+    const { phone } = req.body;
+
+    try {
+       
+        const user = await User.findOne({ phone });
+        if (!user) {
+            return res.status(404).json({ message: 'User with this phone number does not exist' });
+        }
+
+        
+        const response = await axios.get(
+            `https://2factor.in/API/V1/${api_key}/SMS/${phone}/AUTOGEN/OTP1`
+        );
+
+        if (response.data.Status !== 'Success') {
+            return res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
+        }
+
+        
+        
+
+        return res.status(200).json({ message: 'OTP sent successfully' });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// verify otp for password reset
+exports.verifyForgotPasswordOTP = async (req, res) => {
+    const { phone, otp } = req.body;
+
+    try {
+        const response = await axios.get(
+            `https://2factor.in/API/V1/${api_key}/SMS/VERIFY3/${phone}/${otp}`
+        );
+
+        if (response.data.Status !== 'Success') {
+            return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
+        }
+        const tempToken = jwt.sign(
+            { phone },
+            process.env.JWT_SECRET,
+            { expiresIn: '5m' } 
+        );
+        
+        return res.status(200).json({ 
+            message: 'OTP verified successfully. Use the token to reset password.', 
+            tempToken 
+        });       
+         
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// reset password after verification
+exports.resetPassword = async (req, res) => {
+    const { tempToken, newPassword } = req.body;
+
+    try {
+        
+        const decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+        const phone = decoded.phone;
+
+        
+        const user = await User.findOne({ phone });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+       
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        
+        await User.updateOne({ phone }, { password: hashedPassword });
+
+        return res.status(200).json({ message: 'Password updated successfully' });
+    } catch (err) {
+        console.error(err.message);
+        if (err.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: 'Token has expired. Please try again.' });
+        } else if (err.name === 'JsonWebTokenError') {
+            return res.status(400).json({ message: 'Invalid token.' });
+        }
+
+        return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
 // Google Login Callback
@@ -104,3 +255,5 @@ exports.facebookLoginCallback = (req, res, next) => {
         });
     })(req, res, next);
 };
+
+
