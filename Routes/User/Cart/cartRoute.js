@@ -11,7 +11,7 @@ router.get('/view-cart/:userId', jwtVerify(['user']), cartController.getCartByUs
 router.delete('/remove', jwtVerify(['user']), cartController.removeFromCart);
 router.patch('/update', jwtVerify(['user']), cartController.updateCartItemQuantity);
 router.delete('/clear/:userId', jwtVerify(['user']), cartController.clearCart);
-
+router.post('/applyCoupon',cartController.applyCouponToCart)
 
 module.exports = router;
 // mnb
