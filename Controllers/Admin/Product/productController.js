@@ -4,7 +4,7 @@ const Product = require('../../../Models/Admin/ProductModel');
 exports.addProduct = async (req, res) => {
   try {
     // Process uploaded image paths
-    const imagePaths = req.files ? req.files.map((file) => file.path) : [];
+    const imagePaths = req.files ? req.files.map((file) => file.filename) : [];
     
     // Robust colors parsing with fallback and validation
     let colors = [];
@@ -157,7 +157,7 @@ exports.updateProduct = async (req, res) => {
     }
 
     const existingImages = product.images || [];
-    const newImages = req.files ? req.files.map((file) => file.path) : [];
+    const newImages = req.files ? req.files.map((file) => file.filename) : [];
     if (existingImages.length + newImages.length > 5) {
       return res.status(400).json({ message: "Cannot have more than 5 images for a product" });
     }
