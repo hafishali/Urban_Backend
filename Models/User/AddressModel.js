@@ -28,8 +28,8 @@ const addressSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
-  landmark: {
-    type: String,
+  pincode: {
+    type: Number,
     required: [true, "Pincode is required"],
   },
   city: {
