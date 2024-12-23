@@ -120,9 +120,13 @@ exports.placeOrder = async (req, res) => {
       // Deduct total stock
       productData.totalStock -= product.quantity;
 
+      // Increment order count
+      productData.orderCount += product.quantity;
+
       // Mark the fields as modified
       productData.markModified("colors");
       productData.markModified("totalStock");
+      productData.markModified("orderCount");
 
       // Add the validated product to the order
       validatedProducts.push({
@@ -174,9 +178,11 @@ exports.placeOrder = async (req, res) => {
 
     res.status(201).json({ message: "Order placed successfully", order });
   } catch (err) {
+    console.error("Error placing order:", err.message);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 // Get orders by user
 exports.getUserOrders = async (req, res) => {
