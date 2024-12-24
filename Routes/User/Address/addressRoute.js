@@ -10,7 +10,7 @@ router.post('/add', jwtVerify(['user']), addressController.addAddress);
 router.get('/view/:userId', jwtVerify(['user']), addressController.getAddressesByUserId);
 
 // Update an address by ID
-router.put('/update/:id', jwtVerify(['user']), addressController.updateAddress);
+router.patch('/update/:id', jwtVerify(['user']), addressController.updateAddress);
 
 // Delete an address by ID
 router.delete('/delete/:id', jwtVerify(['user']), addressController.deleteAddress);

@@ -206,59 +206,71 @@ exports.applyCouponToCart = async (req, res) => {
   try {
     const { userId, couponCode } = req.body;
 
-    // validate input
-    if(!userId || !couponCode){
-      return res.status(400).json({message:"user id and coupon code are required"})
+    // Validate input
+    if (!userId || !couponCode) {
+      return res.status(400).json({ message: "User ID and coupon code are required" });
     }
 
-    //fetch the cart
-    const cart = await Cart.findOne({userId});
-    if(!cart) {
-      return res.status(404).json({ message: "cart not found"});
+    // Fetch the cart
+    const cart = await Cart.findOne({ userId });
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
     }
-    // fetch the coupon
-    const coupon = await Coupon.findOne({code: couponCode});
-    if(!coupon) {
-      return res.status(404).json({message:'coupon not found'})
+
+    // Check if the coupon is already applied to the cart
+    if (cart.coupon) {
+      const appliedCoupon = await Coupon.findById(cart.coupon);
+      if (appliedCoupon && appliedCoupon.code === couponCode) {
+        return res.status(400).json({ message: "Coupon already applied to this cart" });
+      }
     }
- 
-    // validate coupon
+
+    // Fetch the coupon
+    const coupon = await Coupon.findOne({ code: couponCode });
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    // Validate coupon
     const currentDate = new Date();
-    if(
-      coupon.status !== 'active' ||
+    if (
+      coupon.status !== "active" ||
       currentDate < coupon.startDate ||
       currentDate > coupon.endDate
-   
     ) {
-      return res.status(400).json({message: 'coupon is not active or expired'})
+      return res.status(400).json({ message: "Coupon is not active or expired" });
     }
 
-    // apply coupon discount to total price
+    // Apply coupon discount to total price
+    const previousTotal = cart.totalPrice;
+    const discountValue = coupon.discountValue;
     let discountedPrice = cart.totalPrice;
-    if(coupon.discountType === 'percentage'){
-      discountedPrice -= (cart.totalPrice * coupon.discountValue)/100;
-    } else if (coupon.discountType === 'amount') {
+
+    if (coupon.discountType === "percentage") {
+      discountedPrice -= (cart.totalPrice * coupon.discountValue) / 100;
+    } else if (coupon.discountType === "amount") {
       discountedPrice -= coupon.discountValue;
     }
 
-    // ensure total price is not negative
+    // Ensure total price is not negative
     discountedPrice = Math.max(discountedPrice, 0);
 
-    // update cart with discounted price and applied coupon
+    // Update cart with discounted price and applied coupon
     cart.totalPrice = discountedPrice;
-    cart.coupon = coupon._id; //save coupon reference
+    cart.coupon = coupon._id; // Save coupon reference
 
     await cart.save();
 
     res.status(200).json({
-      message: "coupon applied successfully",
+      message: "Coupon applied successfully",
       cart: {
         ...cart.toObject(),
-        appliedCoupon: coupon.code, // include applied coupon in response
+        appliedCoupon: coupon.code, // Include applied coupon in response
       },
-    })
-
+      originalAmount: previousTotal,
+      discountValue: discountValue,
+    });
   } catch (error) {
     res.status(500).json({ message: "Error applying coupon", error: error.message });
   }
-}
+};
