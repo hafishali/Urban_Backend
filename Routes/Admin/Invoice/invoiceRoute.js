@@ -18,5 +18,8 @@ router.delete('/delete/:id', invoiceController.deleteInvoice);
 // Fetch invoices with search
 router.get('/search', invoiceController.searchInvoices);
 
+// Filter route
+router.get('/filter', invoiceController.filterInvoices);
+
 
 module.exports = router;
