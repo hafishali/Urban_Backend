@@ -16,7 +16,7 @@ const addressSchema = new mongoose.Schema({
     validate: {
       validator: function (v) {
         return /^\d{10}$/.test(v);
-      },
+      }, 
       message: props => `${props.value} is not a valid phone number!`,
     },
   },
@@ -28,7 +28,7 @@ const addressSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
-  landmark: {
+  pincode: {
     type: String,
     required: [true, "Pincode is required"],
   },
@@ -45,6 +45,10 @@ const addressSchema = new mongoose.Schema({
     enum: ['home', 'work', 'other'],
     required: [true, "Address type is required"],
   },
+  defaultAddress:{
+    type:Boolean,
+    default:false
+  }
 });
 
 module.exports = mongoose.model('Address', addressSchema);
