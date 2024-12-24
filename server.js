@@ -80,7 +80,7 @@ app.use('/user/review',reviewRoutes)
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
-const PORT = 3000 || process.env.PORT
+const PORT = 3005 || process.env.PORT
 
 app.listen(PORT,()=>{
     console.log(`server started listening at PORT ${PORT}`);
