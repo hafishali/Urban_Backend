@@ -94,8 +94,8 @@ exports.createInvoice = async (req, res) => {
   
       if (!updateInvoice) {
         return res.status(404).json({ message: 'Invoice not found' });
-      } 
-      res.status(200).json({
+      }  
+      res.status(200).json({ 
         message: 'Invoice updated successfully',
         invoice: updateInvoice
       });

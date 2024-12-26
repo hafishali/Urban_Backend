@@ -9,4 +9,7 @@ router.get('/get', categoryController.getCategories);
 // get single category by id
 router.get('/get/:id',categoryController.getCategoryById)
 
+//filter 
+router.get('/filter', categoryController.filterCategories)
+
 module.exports = router;

@@ -8,4 +8,7 @@ router.get('/get', AdminOrderController.getAllOrder);
 // Route for updating the status of an order
 router.patch('/:orderId/status', AdminOrderController.updateOrderStatus);
 
+// filter
+router.get('/filter', AdminOrderController.filterOrder);
+
 module.exports = router;
