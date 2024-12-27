@@ -1,22 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const invoiceController = require('../../../Controllers/Admin/Invoice/Invoice')
+const jwtVerify = require('../../../Middlewares/jwtMiddleware')
+
 
 // get invoice
-router.get('/get',invoiceController.getInvoices);
+router.get('/get', jwtVerify(['admin']),invoiceController.getInvoices);
 
 // create invoice
-router.post('/create/:orderId', invoiceController.createInvoice);
+// router.post('/create/:orderId', invoiceController.createInvoice);
 
 // update
-router.patch('/update/:id', invoiceController.updateInvoice);
+router.patch('/update/:id', jwtVerify(['admin']), invoiceController.updateInvoice);
 
 // delete
-router.delete('/delete/:id', invoiceController.deleteInvoice);
+router.delete('/delete/:id',  jwtVerify(['admin']),invoiceController.deleteInvoice);
 
 
 // Fetch invoices with search
-router.get('/search', invoiceController.searchInvoices);
+router.get('/search', /*  jwtVerify(['admin']) ,*/invoiceController.searchInvoices);
 
 
 module.exports = router;

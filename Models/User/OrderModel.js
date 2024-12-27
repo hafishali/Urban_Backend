@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Invoice=require('../../Models/Admin/InvoiceModel')
 
 const orderSchema = new mongoose.Schema({
   orderId: { type: Number, required: true, unique: true }, // Unique numeric order ID
@@ -37,9 +38,55 @@ const orderSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
+
+
 orderSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
+
+
+orderSchema.post('save', async function (doc, next) {
+  try {
+    // Populate userId and addressId fields
+    await doc.populate({ path: 'userId', select: 'name phone' });
+    await doc.populate({ path: 'addressId', select: 'address city state' });
+
+    // Check if an invoice already exists for this order
+    const existingInvoice = await Invoice.findOne({ paymentId: `PAY-${doc.orderId}` });
+    if (existingInvoice) {
+      return next(); // Skip invoice creation if already exists
+    }
+
+    // Generate the invoice
+    const invoice = new Invoice({
+      paymentId: `PAY-${doc.orderId}`, // Generate a payment ID
+      userId: doc.userId._id,
+      customerName: doc.userId.name, // Get populated name
+      customerMobile: doc.userId.phone, // Get populated phone
+      address: doc.addressId, // Address already populated
+      products: doc.products.map(product => ({
+        productId: product.productId, // Ensure productId is valid
+        size: product.size,
+        price: product.price,
+        quantity: product.quantity,
+      })),
+      totalAmount: doc.totalPrice,
+      status: doc.status,
+    });
+
+    // Save the invoice
+    await invoice.save();
+    console.log(`Invoice created for order ID: ${doc._id}`);
+    next();
+  } catch (error) {
+    console.error(`Error creating invoice for order ID: ${doc._id}`, error);
+    next(error); // Pass the error to the next middleware
+  }
+});
+
+
+
+
 const Order = mongoose.model('Order', orderSchema);
 module.exports = Order;

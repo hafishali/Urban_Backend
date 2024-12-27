@@ -1,8 +1,7 @@
 const Checkout = require('../../../Models/User/CheckoutModel');
 const Address = require('../../../Models/User/AddressModel');
 const Cart = require('../../../Models/User/CartModel');
-const Product = require('../../../Models/Admin/ProductModel'); // Adjust the path as necessary
-
+const Product = require('../../../Models/Admin/ProductModel'); 
 // Create Checkout
 exports.createCheckout = async (req, res) => {
   const { userId, addressId } = req.body;

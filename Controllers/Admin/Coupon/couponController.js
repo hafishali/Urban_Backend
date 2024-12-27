@@ -1,30 +1,41 @@
 const Coupon = require('../../../Models/Admin/CouponModel')
+const mongoose = require('mongoose');
 
 // create coupon
 exports.createCoupon = async (req, res) => {
     const { title, code, category, startDate, endDate, discountType, discountValue, status } = req.body;
 
-    // ensure startdate<endate
-    if(new Date(startDate) >= new Date(endDate)) {
-        return res.status(400).json({ message: "Start date should be less than end date"});
+    // Ensure startDate < endDate
+    if (new Date(startDate) >= new Date(endDate)) {
+        return res.status(400).json({ message: "Start date should be less than end date" });
     }
+
     try {
+        const objectIdCategories = category.map((id) => {
+            if (!mongoose.Types.ObjectId.isValid(id)) {
+                throw new Error(`Invalid ObjectId: ${id}`);
+            }
+            return new mongoose.Types.ObjectId(id);
+        });
+
         const newCoupon = new Coupon({
             title,
             code,
-            category,
+            category: objectIdCategories, 
             startDate,
             endDate,
             discountType,
             discountValue,
-            status
+            status,
         });
+
         await newCoupon.save();
         res.status(201).json({ message: "Coupon created successfully", coupon: newCoupon });
     } catch (err) {
         res.status(500).json({ message: "Error creating coupon", error: err.message });
     }
-}
+};
+
 
 // get all coupons
 exports.getCoupons = async (req, res) => {
@@ -54,30 +65,78 @@ exports.getCouponById = async (req, res) => {
 // update a coupon
 exports.updateCoupon = async (req, res) => {
     const { id } = req.params;
-    const { title, code, category, startDate, endDate, discountType, discountValue, status } = req.body;
-
-    if (startDate && endDate && new Date(startDate) >= new Date(endDate)) {
-        return res.status(400).json({ message: "Start date must be before end date." });
-    }
+    const { title, code, startDate, endDate, discountType, discountValue, status, addCategories, removeCategories } = req.body;
 
     try {
-        // console.log("Updating coupon with ID:", id);
-        // console.log("Update data:", req.body);
-        const updatedCoupon = await Coupon.findByIdAndUpdate(
-            id,
-            { title, code, category, startDate, endDate, discountType, discountValue, status },
-            { new: true } 
-        );
-
-        if(!updatedCoupon) {
-            return res.status(404).json({ message: "Coupon not found" });
+        const coupon = await Coupon.findById(id);
+        if (!coupon) {
+            return res.status(404).json({ message: "Coupon not found." });
         }
-        res.status(200).json({message: "coupon updated successfully", coupon: updatedCoupon});
 
+        // Validate date logic if startDate and endDate are updated
+        if (startDate && endDate && new Date(startDate) >= new Date(endDate)) {
+            return res.status(400).json({ message: "Start date should be less than end date" });
+        }
+
+        const updateFields = {};
+
+        // Update fields if provided
+        if (title) updateFields.title = title;
+        if (code) updateFields.code = code;
+        if (startDate) updateFields.startDate = startDate;
+        if (endDate) updateFields.endDate = endDate;
+        if (discountType) updateFields.discountType = discountType;
+        if (discountValue !== undefined) updateFields.discountValue = discountValue;
+        if (status) updateFields.status = status;
+
+        // Handle adding categories
+        if (addCategories && Array.isArray(addCategories)) {
+            const validAddCategories = addCategories.filter((id) =>
+                mongoose.Types.ObjectId.isValid(id)
+            );
+            if (validAddCategories.length > 0) {
+                const existingCategories = new Set(coupon.category.map((catId) => catId.toString()));
+                const duplicates = validAddCategories.filter((id) => existingCategories.has(id));
+                if (duplicates.length > 0) {
+                    return res.status(400).json({ message: `Duplicate categories found: ${duplicates.join(', ')}` });
+                }
+                coupon.category = [...new Set([...coupon.category, ...validAddCategories])];
+            }
+        }
+
+        // Handle removing categories
+        if (removeCategories && Array.isArray(removeCategories)) {
+            const validRemoveCategories = removeCategories.filter((id) =>
+                mongoose.Types.ObjectId.isValid(id)
+            );
+            if (validRemoveCategories.length > 0) {
+                const existingCategories = new Set(coupon.category.map((catId) => catId.toString()));
+                const nonExisting = validRemoveCategories.filter((id) => !existingCategories.has(id));
+                if (nonExisting.length > 0) {
+                    return res.status(400).json({ message: `Categories not found: ${nonExisting.join(', ')}` });
+                }
+                coupon.category = coupon.category.filter(
+                    (catId) => !validRemoveCategories.includes(catId.toString())
+                );
+            }
+        }
+
+        // Apply other updates
+        Object.assign(coupon, updateFields);
+
+        // Save the updated coupon
+        const updatedCoupon = await coupon.save();
+
+        res.status(200).json({
+            message: "Coupon updated successfully.",
+            coupon: updatedCoupon,
+        });
     } catch (err) {
-        res.status(500).json({ message: "Error updating coupon", error:err.message})
+        res.status(500).json({ message: "Error updating coupon", error: err.message });
     }
-}
+};
+
+
 
 // delete a coupon
 exports.deleteCoupon = async (req, res) => {
