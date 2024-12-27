@@ -19,63 +19,63 @@ try {
 }
 
 // Create a new invoice
-exports.createInvoice = async (req, res) => {
-    try {
-      const {orderId} = req.params; // The order ID from the URL
+// exports.createInvoice = async (req, res) => {
+//     try {
+//       const {orderId} = req.params; // The order ID from the URL
   
-      // Fetch the order details
-      const order = await Order.findById(orderId)
-      .populate('userId', 'name phone')
-      .populate('addressId', 'address city state')
-      .populate('products.productId', 'title');
-      if (!order) {
-        return res.status(404).json({ message: 'Order not found' });
-      }
+//       // Fetch the order details
+//       const order = await Order.findById(orderId)
+//       .populate('userId', 'name phone')
+//       .populate('addressId', 'address city state')
+//       .populate('products.productId', 'title');
+//       if (!order) {
+//         return res.status(404).json({ message: 'Order not found' });
+//       }
   
-       // Check if the necessary fields are present in the order
-    if (!order.userId || !order.addressId || !order.products || order.products.length === 0) {
-        return res.status(400).json({ message: 'Missing necessary fields in the order' });
-      }
+//        // Check if the necessary fields are present in the order
+//     if (!order.userId || !order.addressId || !order.products || order.products.length === 0) {
+//         return res.status(400).json({ message: 'Missing necessary fields in the order' });
+//       }
 
-      // Generate the invoice from the order details
-      const invoice = new Invoice({
-        paymentId: `PAY-${order.orderId}`, // Use order ID or generate a new payment ID
-        userId: order.userId._id,
-        customerName: order.userId.name,
-        customerMobile: order.userId.phone,
-        address: order.addressId,
-        products: order.products.map(product => {
-            // Check and ensure productId is valid before using it
-            if (!product.productId) {
-              throw new Error(`Missing productId in product ${product._id}`);
-            }
-            return {
-              productId: product.productId._id,  // Should be populated properly
-              size: product.size,
-              price: product.price, 
-              quantity: product.quantity
-            };
-          }),
-        totalAmount: order.totalPrice, 
-        status: order.status,
-      });
+//       // Generate the invoice from the order details
+//       const invoice = new Invoice({
+//         paymentId: `PAY-${order.orderId}`, // Use order ID or generate a new payment ID
+//         userId: order.userId._id,
+//         customerName: order.userId.name,
+//         customerMobile: order.userId.phone,
+//         address: order.addressId,
+//         products: order.products.map(product => {
+//             // Check and ensure productId is valid before using it
+//             if (!product.productId) {
+//               throw new Error(`Missing productId in product ${product._id}`);
+//             }
+//             return {
+//               productId: product.productId._id,  // Should be populated properly
+//               size: product.size,
+//               price: product.price, 
+//               quantity: product.quantity
+//             };
+//           }),
+//         totalAmount: order.totalPrice, 
+//         status: order.status,
+//       });
   
-      // Save the generated invoice
-      await invoice.save();
+//       // Save the generated invoice
+//       await invoice.save();
   
-      res.status(201).json({
-        message: 'Invoice created successfully',
-        invoice
-      }); 
-    } catch (error) {
-        if (error.code === 11000 && error.keyPattern && error.keyPattern.paymentId) {
-            // Handle duplicate key error for `paymentId`
-            return res.status(400).json({ message: 'Invoice already exists with this Payment ID' });
-          }
-      console.error(error);
-      res.status(500).json({ message: 'Failed to create invoice', error });
-    }
-  };
+//       res.status(201).json({
+//         message: 'Invoice created successfully',
+//         invoice
+//       }); 
+//     } catch (error) {
+//         if (error.code === 11000 && error.keyPattern && error.keyPattern.paymentId) {
+//             // Handle duplicate key error for `paymentId`
+//             return res.status(400).json({ message: 'Invoice already exists with this Payment ID' });
+//           }
+//       console.error(error);
+//       res.status(500).json({ message: 'Failed to create invoice', error });
+//     }
+//   };
 
   // update invoice
   exports.updateInvoice = async (req, res) => {
