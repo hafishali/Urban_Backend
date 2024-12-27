@@ -20,5 +20,8 @@ router.delete('/delete/:id',  jwtVerify(['admin']),invoiceController.deleteInvoi
 // Fetch invoices with search
 router.get('/search', /*  jwtVerify(['admin']) ,*/invoiceController.searchInvoices);
 
+// Filter route
+router.get('/filter', invoiceController.filterInvoices);
+
 
 module.exports = router;
