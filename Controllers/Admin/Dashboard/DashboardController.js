@@ -212,7 +212,7 @@ exports.getRecentOrders = async (req, res) => {
     const orders = await Order.find(queryConditions)
       .populate({ path: 'userId', select: 'name email phone' })
       .populate({ path: 'addressId', select: 'name number address city state pincode' })
-      .populate({ path: 'products.productId', select: 'name price' })
+      .populate({ path: 'products.productId', select: '' })
       .sort({ createdAt: -1 });
 
     console.log('Fetched Orders:', orders);

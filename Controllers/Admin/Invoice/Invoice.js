@@ -172,48 +172,67 @@ exports.searchInvoices = async (req, res) => {
 
 // filter invoice
 exports.filterInvoices = async (req, res) => {
-    try {
-      const { status, startDate, endDate, dateType } = req.query;
-  
-      // Build a dynamic filter object for filtering
-      const filter = {};
-  
-      if (status) {
-        filter.status = status;
-      }
+  try {
+    const { status, startDate, endDate, dateType } = req.query;
 
-      // Choose the date field to filter (createdAt or updatedAt)
-      const dateField = dateType === 'updated' ? 'updatedAt' : 'createdAt';
+    // Build a dynamic filter object for filtering
+    const filter = {};
 
-      // Filter by specific date or date range
+    // Add status filter if provided
+    if (status) {
+      filter.status = status;
+    }
+
+    // Choose the date field to filter (createdAt or updatedAt)
+    const dateField = dateType === 'updated' ? 'updatedAt' : 'createdAt';
+
+    // Handle date range filtering
     if (startDate || endDate) {
-    filter[dateField] = {}; // Initialize the date field filter
-  
-  
-       // If only one specific date is provided, match that exact date
-       if (startDate && !endDate) {
-        const startOfDay = new Date(startDate).setHours(0, 0, 0, 0); // Start of the day
-        const endOfDay = new Date(startDate).setHours(23, 59, 59, 999); // End of the day
-        filter[dateField].$gte = new Date(startOfDay);
-        filter[dateField].$lte = new Date(endOfDay);
+      filter[dateField] = {}; // Initialize the date field filter
+
+      const parseDate = (dateString) => {
+        // Parse DD-MM-YYYY format
+        const [day, month, year] = dateString.split('-');
+        return new Date(`${year}-${month}-${day}`);
+      };
+
+      // Validate and parse startDate
+      if (startDate) {
+        const parsedStartDate = parseDate(startDate);
+        if (!isNaN(parsedStartDate)) {
+          filter[dateField].$gte = new Date(parsedStartDate.setHours(0, 0, 0, 0));
+        }
       }
 
-      // If both startDate and endDate are provided, filter within the range
-      if (startDate) filter[dateField].$gte = new Date(startDate);
-      if (endDate) filter[dateField].$lte = new Date(endDate);
+      // Validate and parse endDate
+      if (endDate) {
+        const parsedEndDate = parseDate(endDate);
+        if (!isNaN(parsedEndDate)) {
+          filter[dateField].$lte = new Date(parsedEndDate.setHours(23, 59, 59, 999));
+        }
+      }
+
+      // Remove the date field filter if it remains empty
+      if (Object.keys(filter[dateField]).length === 0) {
+        delete filter[dateField];
+      }
     }
-  
-      const invoices = await Invoice.find(filter)
-        .populate('userId', 'name phone')
-        .populate('products.productId', 'title')
-        .populate('address', 'address city state');
-  
-      res.status(200).json({
-        message: 'Filtered invoices fetched successfully',
-        invoices,
-      });
-    } catch (err) {
-      res.status(500).json({ message: 'Failed to filter invoices', error: err.message });
-    }
-  };
+
+    // Fetch invoices based on the filter
+    const invoices = await Invoice.find(filter)
+      .populate('userId', 'name phone')
+      .populate('products.productId', 'title')
+      .populate('address', 'address city state');
+
+    res.status(200).json({
+      message: 'Filtered invoices fetched successfully',
+      invoices,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to filter invoices', error: err.message });
+  }
+};
+
+
+
   

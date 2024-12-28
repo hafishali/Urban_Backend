@@ -71,96 +71,79 @@ const Cart = require('../../../Models/User/CartModel')
 exports.placeOrder = async (req, res) => {
   const { userId, addressId, products, paymentMethod, deliveryCharge } = req.body;
 
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     // Validate address
     const address = await Address.findById(addressId);
     if (!address || address.userId.toString() !== userId) {
-      return res.status(404).json({ message: "Invalid address ID or address does not belong to the user" });
+      throw new Error("Invalid address ID or address does not belong to the user");
     }
 
     // Validate products and calculate total price
     let totalPrice = 0;
     const validatedProducts = [];
     for (const product of products) {
-      const productData = await Product.findById(product.productId);
+      const productData = await Product.findById(product.productId).session(session);
       if (!productData) {
-        return res.status(404).json({ message: `Product with ID ${product.productId} not found` });
+        throw new Error(`Product with ID ${product.productId} not found`);
       }
 
       if (!product.color || !product.size) {
-        return res.status(400).json({ message: `Color and size are required for product ID ${product.productId}` });
+        throw new Error(`Color and size are required for product ID ${product.productId}`);
       }
 
-      // Find the selected color
-      const selectedColor = productData.colors.find(
-        (color) => color.color === product.color
-      );
+      const selectedColor = productData.colors.find((color) => color.color === product.color);
       if (!selectedColor) {
-        return res.status(400).json({ message: `Invalid color '${product.color}' for product ID ${product.productId}` });
+        throw new Error(`Invalid color '${product.color}' for product ID ${product.productId}`);
       }
 
-      // Find the selected size
-      const selectedSize = selectedColor.sizes.find(
-        (size) => size.size === product.size
-      );
+      const selectedSize = selectedColor.sizes.find((size) => size.size === product.size);
       if (!selectedSize) {
-        return res.status(400).json({ message: `Invalid size '${product.size}' for product ID ${product.productId}` });
+        throw new Error(`Invalid size '${product.size}' for product ID ${product.productId}`);
       }
 
-      // Check stock availability for the selected size
       if (selectedSize.stock < product.quantity) {
-        return res.status(400).json({
-          message: `Insufficient stock for product ID ${product.productId}, color '${product.color}', size '${product.size}'`,
-        });
+        throw new Error(`Insufficient stock for product ID ${product.productId}, color '${product.color}', size '${product.size}'`);
       }
 
-      // Deduct stock for the selected size
       selectedSize.stock -= product.quantity;
-
-      // Deduct total stock
       productData.totalStock -= product.quantity;
-
-      // Increment order count
       productData.orderCount += product.quantity;
 
-      // Mark the fields as modified
       productData.markModified("colors");
       productData.markModified("totalStock");
       productData.markModified("orderCount");
 
-      // Add the validated product to the order
       validatedProducts.push({
         productId: productData._id,
         quantity: product.quantity,
-        price: productData.offerPrice, // Assuming offerPrice is used for calculations
-        color: product.color, // Include color
-        size: product.size,   // Include size
+        price: productData.offerPrice,
+        color: product.color,
+        size: product.size,
       });
 
       totalPrice += product.quantity * productData.offerPrice;
 
-      // Save the updated product data
-      await productData.save();
+      await productData.save({ session });
     }
 
-    // Generate unique numeric order ID
     const orderId = await generateNumericOrderId();
 
-    // Create the order
     const order = new Order({
-      orderId, // Unique numeric ID
+      orderId,
       userId,
       addressId,
       products: validatedProducts,
       totalPrice,
-      deliveryCharge, // Directly include deliveryCharge from the request body
+      deliveryCharge,
       paymentMethod,
     });
 
-    await order.save();
+    await order.save({ session });
 
-    // Remove the ordered items from the user's cart
-    const cart = await Cart.findOne({ userId });
+    const cart = await Cart.findOne({ userId }).session(session);
     if (cart) {
       cart.items = cart.items.filter(
         (cartItem) =>
@@ -171,17 +154,21 @@ exports.placeOrder = async (req, res) => {
               orderProduct.size === cartItem.size
           )
       );
-
-      // Save the updated cart
-      await cart.save();
+      await cart.save({ session });
     }
+
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(201).json({ message: "Order placed successfully", order });
   } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
     console.error("Error placing order:", err.message);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 
 // Get orders by user
@@ -225,3 +212,5 @@ exports.getOrderById = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+

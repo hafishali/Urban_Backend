@@ -2,6 +2,7 @@ const Checkout = require('../../../Models/User/CheckoutModel');
 const Address = require('../../../Models/User/AddressModel');
 const Cart = require('../../../Models/User/CartModel');
 const Product = require('../../../Models/Admin/ProductModel'); 
+const { checkout } = require('../../../Routes/Admin/Invoice/invoiceRoute');
 // Create Checkout
 exports.createCheckout = async (req, res) => {
   const { userId, addressId } = req.body;
@@ -94,5 +95,18 @@ exports.getUserCheckouts = async (req, res) => {
     res.status(200).json({ checkouts });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// delete checkout
+exports.deletCheckout = async (req, res) => {
+  try {
+    const deletedCheckout = await Checkout.findByIdAndDelete(req.params.id);
+    if (!deletedCheckout) {
+      return res.status(404).json({ message: "checkout details not found" });
+    }
+    res.status(200).json({ message: "checkout deleted successfully" });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 };

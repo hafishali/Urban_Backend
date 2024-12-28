@@ -11,5 +11,7 @@ router.get('/checkout/:id', jwtVerify(['user']), checkoutController.getCheckoutB
 
 // Get all checkouts for a user
 router.get('/checkout',jwtVerify(['user']), checkoutController.getUserCheckouts);
+// delete checkout
+router.delete('/delete/:id',jwtVerify(['user']), checkoutController.deletCheckout);
 
 module.exports = router;
