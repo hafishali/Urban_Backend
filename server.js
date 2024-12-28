@@ -22,6 +22,7 @@ const userAdminController=require('./Routes/Admin/Users/userRoute')
 const orderController = require('./Routes/User/Order/OrderRoute')
 const DashboardController=require('./Routes/Admin/Dashboard/DashboardRoute')
 const adminProfileController=require('./Routes/Admin/Profile/ProfileRoute')
+const invoiceRoutes = require('./Routes/Admin/Invoice/invoiceRoute');
 
 const userCartRoutes = require('./Routes/User/Cart/cartRoute')
 const wishlistRoutes = require('./Routes/User/Wishlist/wishlistRoute')
@@ -34,7 +35,8 @@ const orderRoutes = require('./Routes/User/Order/OrderRoute')
 const reviewRoutes  = require('./Routes/User/Review/reviewRoute')
 const adminOrderRoutes = require('./Routes/Admin/Order/orderRoute')
 const deliveryFeeRoutes = require('./Routes/Admin/DeliveryFee/deliveryFeeRoute')
-const invoiceRoutes = require('./Routes/Admin/Invoice/invoiceRoute');
+const MainSearchRoutes = require('./Routes/User/Main Search/SearchRoutes');
+
 
 const path = require('path')
 
@@ -76,6 +78,8 @@ app.use('/user/profile',profileRoutes)
 app.use('/user/checkout',checkoutRoutes)
 app.use('/user/order',orderRoutes)
 app.use('/user/review',reviewRoutes)
+app.use('/user/search',MainSearchRoutes)
+
 
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))

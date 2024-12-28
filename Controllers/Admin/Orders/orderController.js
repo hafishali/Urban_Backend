@@ -57,12 +57,27 @@ exports.updateOrderStatus = async (req, res) => {
     }
 };
 
+
+
 exports.filterOrder = async (req, res) => {
     try {
         const { startDate, endDate, category, status } = req.query;
 
-        // Build a dynamic filter object
-        const filter = {};
+        // Fetch all orders with the required populated fields
+        const allOrders = await Order.find()
+            .populate('userId', 'name phone') // Populate user details
+            .populate('addressId', 'address city state pincode') // Populate address details
+            .populate({
+                path: 'products.productId', // Populate product details
+                populate: { 
+                    path: 'category', 
+                    select: 'name' // Populate category and select its name
+                }
+            })
+            .sort({ createdAt: -1 }); // Sort by creation date descending
+
+        // Apply filters on the populated data
+        let filteredOrders = allOrders;
 
         // Filter by order status
         if (status) {
@@ -70,40 +85,37 @@ exports.filterOrder = async (req, res) => {
             if (!validStatuses.includes(status)) {
                 return res.status(400).json({ message: "Invalid status value" });
             }
-            filter.status = status;
+            filteredOrders = filteredOrders.filter(order => order.status === status);
         }
 
-        // Filter by date range (createdAt)
+        // Filter by date range
         if (startDate || endDate) {
-            filter.createdAt = {};
-            if (startDate) filter.createdAt.$gte = new Date(startDate);
-            if (endDate) filter.createdAt.$lte = new Date(endDate);
+            const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : null;
+            const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : null;
+            filteredOrders = filteredOrders.filter(order => {
+                const createdAt = new Date(order.createdAt).getTime();
+                return (!start || createdAt >= start) && (!end || createdAt <= end);
+            });
         }
 
-// Filter by productId (_id) or category name
-if (category) {
-    if (mongoose.Types.ObjectId.isValid(category)) {
-        // Treat `category` as a product ID
-        filter['products._id'] = new mongoose.Types.ObjectId(category);
-        console.log("Filtering by productId:", filter['products._id']);
-    } else {
-        // Treat `category` as a category string (using regex)
-        const matchingProducts = await Product.find({ category: { $regex: category, $options: 'i' } }).select('_id');
-        const productIds = matchingProducts.map(product => product._id);
-        filter['products._id'] = { $in: productIds };
-        console.log("Filtering by category IDs:", productIds);
-    }
-}
+        // Filter by category
+        if (category) {
+            if (mongoose.Types.ObjectId.isValid(category)) {
+                filteredOrders = filteredOrders.filter(order =>
+                    order.products.some(product => 
+                        product.productId &&
+                        product.productId.category &&
+                        String(product.productId.category._id) === category
+                    )
+                );
+            } else {
+                return res.status(400).json({ message: "Invalid category ID" });
+            }
+        }
 
-        // Fetch the filtered orders
-        const orders = await Order.find(filter)
-            .populate('userId', 'name') // Populate user details
-            .populate('addressId', 'address city state pincode') // Populate address details
-            .populate('products.productId', 'title category') // Populate product details with category
-            .sort({ createdAt: -1 }); // Sort by creation date descending
-
-        res.status(200).json(orders);
+        res.status(200).json(filteredOrders);
     } catch (err) {
+        console.error("Error in filterOrder:", err);
         res.status(500).json({ message: "Error fetching orders", error: err.message });
     }
 };
