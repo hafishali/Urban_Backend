@@ -3,13 +3,19 @@ const Address = require('../../../Models/User/AddressModel');
 const Cart = require('../../../Models/User/CartModel');
 const Product = require('../../../Models/Admin/ProductModel'); 
 const { checkout } = require('../../../Routes/Admin/Invoice/invoiceRoute');
+const Coupon=require('../../../Models/Admin/CouponModel');
+
 // Create Checkout
 exports.createCheckout = async (req, res) => {
   const { userId, addressId } = req.body;
 
   try {
     // Fetch the user's cart
-    const cart = await Cart.findOne({ userId }).populate('items.productId', 'title price color size');
+    const cart = await Cart.findOne({ userId }).populate({
+      path: 'items.productId',
+      populate: { path: 'category', select: '_id name' },
+    });
+
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({ message: "Cart is empty or not found" });
     }
@@ -20,43 +26,84 @@ exports.createCheckout = async (req, res) => {
       return res.status(404).json({ message: "Invalid shipping address" });
     }
 
-    // Calculate total price
-    const totalPrice = cart.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+    let discountedPrice = cart.totalPrice; // Default to total price
+    let couponAmount = 0;
+    let couponRemoved = false;
 
-    if (totalPrice <= 0) {
-      return res.status(400).json({ message: "Invalid total price" });
+    if (cart.coupon) {
+      // Fetch the coupon
+      const coupon = await Coupon.findById(cart.coupon);
+      if (coupon) {
+        const cartCategories = cart.items.map((item) => item.productId.category._id.toString());
+        const couponCategories = coupon.category.map((id) => id.toString());
+
+        const hasMatchingCategory = cartCategories.some((categoryId) =>
+          couponCategories.includes(categoryId)
+        );
+
+        if (hasMatchingCategory) {
+          // Apply coupon discount
+          if (coupon.discountType === "percentage") {
+            couponAmount = (cart.totalPrice * coupon.discountValue) / 100;
+          } else if (coupon.discountType === "amount") {
+            couponAmount = coupon.discountValue;
+          }
+
+          discountedPrice = Math.max(cart.totalPrice - couponAmount, 0);
+        } else {
+          // Remove coupon if no categories match
+          cart.coupon = null;
+          cart.discountedTotal = cart.totalPrice;
+          cart.coupenAmount = 0;
+          cart.discountType = null;
+          couponRemoved = true;
+          await cart.save();
+        }
+      }
     }
+
+    // Map cart items with price explicitly set
+    const cartItems = cart.items.map((item) => ({
+      productId: item.productId._id,
+      quantity: item.quantity,
+      price: item.price, // Use the price field directly
+      color: item.color,
+      size: item.size,
+    }));
 
     // Create checkout record
     const checkout = new Checkout({
       userId,
       cartId: cart._id,
-      cartItems: cart.items.map(item => ({
-        productId: item.productId._id,
-        quantity: item.quantity,
-        price: item.price,
-        color: item.color, // Include color from product
-        size: item.size,   // Include size from product
-      })),
+      cartItems, // Pass the mapped cart items
       addressId: address._id,
-      totalPrice,
+      totalPrice: cart.totalPrice,
+      discountedPrice,
+      coupen: couponRemoved ? null : cart.coupon,
+      coupenAmount:cart.discountValue ,
+      discountType: couponRemoved ? null : cart.discountType,
     });
 
     await checkout.save();
 
-    // Optionally clear the cart after checkout
-    // cart.items = [];
-    // cart.totalPrice = 0;
-    // await cart.save();
-
     res.status(201).json({
       message: "Checkout created successfully",
-      checkout,
+      couponMessage: couponRemoved
+        ? "Coupon removed because no matching category products were found in the cart."
+        : "Coupon applied successfully.",
+      checkout: {
+        totalPrice: checkout.totalPrice,
+        discountedPrice: checkout.discountedPrice,
+      },
+      checkoutId:checkout._id
     });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+
+
 
 // Get Checkout by ID
 exports.getCheckoutById = async (req, res) => {
@@ -67,8 +114,12 @@ exports.getCheckoutById = async (req, res) => {
       .populate({
         path: 'cartItems.productId', 
         model: 'Products', 
-        select: 'title offerPrice description images color size', 
-      });
+        select: 'title  images color size', 
+      }). populate({
+        path: 'coupen', 
+        model: 'Coupon', 
+        select: 'discountValue  discountType code title', 
+      })
 
     if (!checkout) {
       return res.status(404).json({ message: "Checkout not found" });
@@ -85,11 +136,10 @@ exports.getCheckoutById = async (req, res) => {
 exports.getUserCheckouts = async (req, res) => {
   try {
     const checkouts = await Checkout.find({ userId: req.user.userId })
-      .populate('shippingAddress') // Populate address details
       .populate({
         path: 'cartItems.productId',
         model: 'Products',
-        select: 'title offerPrice description color size', // Include color and size
+        select: 'title offerPrice  color size', // Include color and size
       });
 
     res.status(200).json({ checkouts });

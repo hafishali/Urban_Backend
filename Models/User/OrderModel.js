@@ -21,11 +21,24 @@ const orderSchema = new mongoose.Schema({
     required: true,
     enum: ['Cash on Delivery', 'Credit Card', 'UPI', 'Net Banking'],
   },
+  TrackId:{
+    type:String
+  },
   status: {
     type: String,
     default: 'Pending',
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
   },
+  discountedAmount:{
+    type:Number
+  },
+  finalPayableAmount:{
+    type:Number
+  },
+  coupen:{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Coupon',
+    },
   deliveryDate: {
     type: Date,
     validate: {
@@ -71,7 +84,7 @@ orderSchema.post('save', async function (doc, next) {
         price: product.price,
         quantity: product.quantity,
       })),
-      totalAmount: doc.totalPrice,
+      totalAmount: doc.finalPayableAmount,
       status: doc.status,
     });
 

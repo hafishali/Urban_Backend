@@ -3,7 +3,7 @@ const Category = require("../../../Models/Admin/CategoryModel");
 const SubCategory= require("../../../Models/Admin/SubcategoyModel");
 
 exports.MainSearch = async (req, res) => {
-  const { query, page = 1, limit = 10 } = req.query;
+  const { query, page = 1, limit = 10 } = req.query;``
 
   try {
     if (!query || query.trim() === "") {
