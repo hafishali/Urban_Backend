@@ -3,6 +3,9 @@ const Address = require('../../../Models/User/AddressModel');
 const Product = require('../../../Models/Admin/ProductModel');
 const generateNumericOrderId = require('../../../utils/generateNumericOrderId');
 const Cart = require('../../../Models/User/CartModel')
+const Checkout=require('../../../Models/User/CheckoutModel')
+const Coupon=require('../../../Models/Admin/CouponModel');
+const mongoose=require('mongoose')
 
 // Place an order
 // exports.placeOrder = async (req, res) => {
@@ -69,48 +72,53 @@ const Cart = require('../../../Models/User/CartModel')
 //   }
 // };
 exports.placeOrder = async (req, res) => {
-  const { userId, addressId, products, paymentMethod, deliveryCharge } = req.body;
+  const { userId, addressId, paymentMethod, deliveryCharge, checkoutId } = req.body;
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // Validate address
-    const address = await Address.findById(addressId);
-    if (!address || address.userId.toString() !== userId) {
-      throw new Error("Invalid address ID or address does not belong to the user");
+    const checkout = await Checkout.findById(checkoutId)
+      .populate('cartItems.productId')
+      .populate({
+        path: 'coupen',
+        model: 'Coupon',
+        select: 'discountValue discountType code title',
+      });
+
+    if (!checkout || checkout.userId._id.toString() !== userId || !checkout.cartItems.length) {
+      throw new Error("Invalid Checkout ID or no products found in the checkout");
+    }
+    if (checkout.addressId._id.toString() !== addressId) {
+      throw new Error("Invalid address ID or address mismatch in the checkout");
     }
 
-    // Validate products and calculate total price
-    let totalPrice = 0;
     const validatedProducts = [];
-    for (const product of products) {
-      const productData = await Product.findById(product.productId).session(session);
+    let totalPrice = 0;
+
+    for (const cartItem of checkout.cartItems) {
+      const productData = cartItem.productId;
       if (!productData) {
-        throw new Error(`Product with ID ${product.productId} not found`);
+        throw new Error(`Product with ID ${cartItem.productId} not found`);
       }
 
-      if (!product.color || !product.size) {
-        throw new Error(`Color and size are required for product ID ${product.productId}`);
-      }
-
-      const selectedColor = productData.colors.find((color) => color.color === product.color);
+      const selectedColor = productData.colors.find((color) => color.color === cartItem.color);
       if (!selectedColor) {
-        throw new Error(`Invalid color '${product.color}' for product ID ${product.productId}`);
+        throw new Error(`Invalid color '${cartItem.color}' for product '${productData.title}' (ID: ${productData._id})`);
       }
 
-      const selectedSize = selectedColor.sizes.find((size) => size.size === product.size);
+      const selectedSize = selectedColor.sizes.find((size) => size.size === cartItem.size);
       if (!selectedSize) {
-        throw new Error(`Invalid size '${product.size}' for product ID ${product.productId}`);
+        throw new Error(`Invalid size '${cartItem.size}' for product '${productData.title}' (ID: ${productData._id})`);
       }
 
-      if (selectedSize.stock < product.quantity) {
-        throw new Error(`Insufficient stock for product ID ${product.productId}, color '${product.color}', size '${product.size}'`);
+      if (selectedSize.stock < cartItem.quantity) {
+        throw new Error(`Insufficient stock for product '${productData.title}' (ID: ${productData._id}), color '${cartItem.color}', size '${cartItem.size}'`);
       }
 
-      selectedSize.stock -= product.quantity;
-      productData.totalStock -= product.quantity;
-      productData.orderCount += product.quantity;
+      selectedSize.stock -= cartItem.quantity;
+      productData.totalStock -= cartItem.quantity;
+      productData.orderCount += cartItem.quantity;
 
       productData.markModified("colors");
       productData.markModified("totalStock");
@@ -118,15 +126,33 @@ exports.placeOrder = async (req, res) => {
 
       validatedProducts.push({
         productId: productData._id,
-        quantity: product.quantity,
+        quantity: cartItem.quantity,
         price: productData.offerPrice,
-        color: product.color,
-        size: product.size,
+        color: cartItem.color,
+        size: cartItem.size,
       });
 
-      totalPrice += product.quantity * productData.offerPrice;
-
+      totalPrice += cartItem.quantity * productData.offerPrice;
       await productData.save({ session });
+    }
+console.log({amount:checkout.totalPrice,discounted:checkout.discountedPrice})
+    let discountedAmount = 0;
+    let finalPayableAmount = checkout.totalPrice;
+
+    const existingCoupon = await Coupon.findById(checkout.coupen._id);
+
+    if (existingCoupon && existingCoupon.status === 'active') {
+      discountedAmount = checkout.totalPrice - checkout.discountedPrice;
+      finalPayableAmount = checkout.discountedPrice;
+    }
+    finalPayableAmount += deliveryCharge;
+
+    // Ensure that finalPayableAmount and discountedAmount are numbers
+    discountedAmount = parseFloat(discountedAmount.toFixed(2));
+    finalPayableAmount = parseFloat(finalPayableAmount.toFixed(2));
+
+    if (isNaN(finalPayableAmount)) {
+      throw new Error("Invalid final payable amount");
     }
 
     const orderId = await generateNumericOrderId();
@@ -137,25 +163,16 @@ exports.placeOrder = async (req, res) => {
       addressId,
       products: validatedProducts,
       totalPrice,
+      discountedAmount,
       deliveryCharge,
+      finalPayableAmount,
       paymentMethod,
+      coupon: checkout.coupen,
     });
 
     await order.save({ session });
-
-    const cart = await Cart.findOne({ userId }).session(session);
-    if (cart) {
-      cart.items = cart.items.filter(
-        (cartItem) =>
-          !products.some(
-            (orderProduct) =>
-              orderProduct.productId === cartItem.productId &&
-              orderProduct.color === cartItem.color &&
-              orderProduct.size === cartItem.size
-          )
-      );
-      await cart.save({ session });
-    }
+    await Cart.deleteOne({ userId }).session(session);
+    await Checkout.deleteOne({ _id: checkoutId }).session(session);
 
     await session.commitTransaction();
     session.endSession();
@@ -164,10 +181,16 @@ exports.placeOrder = async (req, res) => {
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
-    console.error("Error placing order:", err.message);
+    console.error("Error placing order:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+
+
+
+
+
 
 
 

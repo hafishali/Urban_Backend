@@ -34,6 +34,18 @@ exports.createCheckout = async (req, res) => {
       // Fetch the coupon
       const coupon = await Coupon.findById(cart.coupon);
       if (coupon) {
+        const currentDate = new Date();
+        if (
+          coupon.status !== "active" ||
+          currentDate < coupon.startDate ||
+          currentDate > coupon.endDate
+        ) {
+          cart.coupon = null;
+          cart.discountedTotal = cart.totalPrice;
+          cart.coupenAmount = 0;
+          cart.discountType = null;
+          couponRemoved = true;
+        }
         const cartCategories = cart.items.map((item) => item.productId.category._id.toString());
         const couponCategories = coupon.category.map((id) => id.toString());
 
@@ -89,7 +101,7 @@ exports.createCheckout = async (req, res) => {
     res.status(201).json({
       message: "Checkout created successfully",
       couponMessage: couponRemoved
-        ? "Coupon removed because no matching category products were found in the cart."
+        ? "Coupon removed because no matching category products were found in the cart or coupen has been expired"
         : "Coupon applied successfully.",
       checkout: {
         totalPrice: checkout.totalPrice,
@@ -110,7 +122,7 @@ exports.getCheckoutById = async (req, res) => {
   try {
     const checkout = await Checkout.findById(req.params.id)
       .populate('userId', 'name email') // Populate user info
-      .populate('addressId', 'name number address landmark city landmark state addressType') // Populate address details
+      .populate('addressId', 'name number address landmark city landmark state addressType pincode ') // Populate address details
       .populate({
         path: 'cartItems.productId', 
         model: 'Products', 
