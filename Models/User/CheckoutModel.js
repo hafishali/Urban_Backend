@@ -43,6 +43,20 @@ const checkoutSchema = new mongoose.Schema({
     type: Number, 
     required: true 
   },
+  discountedPrice:{
+    type: Number,
+  },
+  coupen:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Coupon',
+  },
+  coupenAmount: {
+    type: Number,
+    default: 0
+  },
+  discountType: {
+    type: String,
+  },
   createdAt: { 
     type: Date, 
     default: Date.now 

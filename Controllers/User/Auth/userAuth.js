@@ -6,7 +6,7 @@ const NodeCache = require('node-cache');
 const otpGenerator = require('otp-generator');
 const axios = require('axios');
 
-const cache = new NodeCache({ stdTTL: 300 });  //5 minutes expiry for otp
+const cache = new NodeCache({ stdTTL: 300 });  
 const api_key=process.env.FACTOR_API_KEY
 
 // sending otp for registration
@@ -48,7 +48,7 @@ exports.verifyOTP = async (req, res) => {
         // Retrieve stored data from cache
         const cachedData = cache.get(phone);
         if (!cachedData) {
-            return res.status(400).json({ message: 'OTP  or ' });
+            return res.status(400).json({ message: 'OTP  invalid or expired ' });
         }
 
         // Verify the OTP with 2Factor API
