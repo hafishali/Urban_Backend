@@ -1,5 +1,7 @@
 const Coupon = require('../../../Models/Admin/CouponModel')
 const mongoose = require('mongoose');
+const cron = require('node-cron');
+
 
 // create coupon
 exports.createCoupon = async (req, res) => {
@@ -181,3 +183,31 @@ exports.searchCoupon = async (req, res) => {
     res.status(500).json({ message: "Error searching coupons", error: err.message })
 }
 };
+
+const updateCouponStatus = async () => {
+    try {
+        // Get current date
+        const currentDate = new Date();
+
+        // Find all coupons that have expired
+        const expiredCoupons = await Coupon.find({
+            endDate: { $lt: currentDate },
+            status: 'active'  // Only update active coupons that have expired
+        });
+
+        // Update the status of expired coupons to 'expired'
+        await Promise.all(
+            expiredCoupons.map(async (coupon) => {
+                coupon.status = 'expired';
+                await coupon.save();
+            })
+        );
+
+        console.log(`Updated ${expiredCoupons.length} expired coupons.`);
+    } catch (err) {
+        console.error("Error updating coupon statuses:", err);
+    }
+};
+
+// Schedule the task to run every midnight IST (5:30 AM UTC)
+cron.schedule('0 0 5-23 * *', updateCouponStatus);  

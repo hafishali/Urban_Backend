@@ -35,27 +35,69 @@ exports.getAllOrder = async (req, res) => {
 // Update order status
 exports.updateOrderStatus = async (req, res) => {
     try {
-        const { orderId } = req.params; 
-        const { status } = req.body; 
-        const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+        const { orderId } = req.params; // Order ID
+        const { status,TrackId } = req.body; // New status
+
+        // Validate status
+        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid status value" });
         }
+
+        // Update the order's status
         const order = await Order.findByIdAndUpdate(
             orderId,
-            { status },
-            { new: true } 
-        ).populate('userId', 'name') 
-         .populate('addressId', 'address city state pincode') 
-         .populate('products.productId', 'title'); 
+            { status,TrackId},
+            { new: true } // Return the updated document
+        ).populate('userId', 'name') // Populate user name only
+         .populate('addressId', 'address city state pincode') // Populate address details
+         .populate('products.productId', 'title'); // Populate productId with title only
+
         if (!order) {
             return res.status(404).json({ message: "Order not found" });
         }
+
         res.status(200).json({ message: "Order status updated successfully", order });
     } catch (err) {
         res.status(500).json({ message: "Error updating order status", error: err.message });
     }
 };
+
+// bulk edit on status
+exports.bulkUpdateOrderStatus = async (req, res) => {
+    try {
+        const { orderIds, status } = req.body; 
+
+        
+        if (!Array.isArray(orderIds) || !orderIds.length) {
+            return res.status(400).json({ message: "Invalid or empty orderIds array" });
+        }
+
+        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message:"Invalid status value"});
+        }
+
+        // Update the status for each order in bulk
+        const orders = await Order.updateMany(
+            { _id: { $in: orderIds } },
+            { status },
+            { new: true } // Return updated documents
+        ).populate('userId', 'name') // Populate user name only
+         .populate('addressId', 'address city state pincode') // Populate address details
+         .populate('products.productId', 'title'); // Populate productId with title only
+
+        if (orders.nModified === 0) {
+            return res.status(404).json({ message: "No orders found or status already updated for all selected orders" });
+        }
+
+        res.status(200).json({ message: `${orders.nModified} orders updated successfully`, orders });
+    } catch (err) {
+        res.status(500).json({ message: "Error updating order statuses", error: err.message });
+    }
+};
+
+
 
 
 

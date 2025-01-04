@@ -57,18 +57,18 @@ exports.getStats = async (req, res) => {
   exports.getMonthlyRevenue = async (req, res) => {
     try {
         const { 
-            place,       // State or city to filter 
+            place,       
             startMonth, 
             endMonth, 
-            year        // Optional year parameter
+            year        
         } = req.query;
   
-        // Validate and set month range
+        
         const currentYear = year ? parseInt(year) : new Date().getFullYear();
         const startMonthParsed = startMonth ? parseInt(startMonth) : 1;
         const endMonthParsed = endMonth ? parseInt(endMonth) : 12;
   
-        // Validate month range
+        
         if (startMonthParsed < 1 || startMonthParsed > 12 || 
             endMonthParsed < 1 || endMonthParsed > 12 || 
             startMonthParsed > endMonthParsed) {
@@ -78,15 +78,15 @@ exports.getStats = async (req, res) => {
             });
         }
   
-        // Month names for the response
+      
         const monthNames = [
             'January', 'February', 'March', 'April', 'May', 'June',
             'July', 'August', 'September', 'October', 'November', 'December'
         ];
   
-        // Define the base match stage
+        
         const matchStage = {
-            status: 'completed', // Always filter by completed orders
+            status: 'Pending', 
             createdAt: {
                 $gte: new Date(currentYear, startMonthParsed - 1, 1),
                 $lt: new Date(currentYear, endMonthParsed, 1)
@@ -187,35 +187,50 @@ exports.getStats = async (req, res) => {
 // recent orders by filter(month)
 exports.getRecentOrders = async (req, res) => {
   try {
-    const { month } = req.query;
+    const { month, year } = req.query;
 
     // Prepare date ranges
     const now = new Date();
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    let queryConditions = { };
+    let queryConditions = {};
 
-    if (month) {
+    if (month && year) {
+      const yearValue = parseInt(year);
+      const monthIndex = parseInt(month) - 1;
+
+      queryConditions.createdAt = {
+        $gte: new Date(yearValue, monthIndex, 1),
+        $lt: new Date(yearValue, monthIndex + 1, 1),
+      };
+    } else if (month) {
       const currentYear = now.getFullYear();
       const monthIndex = parseInt(month) - 1;
 
       queryConditions.createdAt = {
         $gte: new Date(currentYear, monthIndex, 1),
-        $lt: new Date(currentYear, monthIndex + 1, 1)
+        $lt: new Date(currentYear, monthIndex + 1, 1),
+      };
+    } else if (year) {
+      const yearValue = parseInt(year);
+
+      queryConditions.createdAt = {
+        $gte: new Date(yearValue, 0, 1),
+        $lt: new Date(yearValue + 1, 0, 1),
       };
     } else {
       queryConditions.createdAt = { $gte: oneWeekAgo, $lte: now };
     }
 
-    console.log('Query Conditions:', queryConditions);
+    console.log("Query Conditions:", queryConditions);
 
     const orders = await Order.find(queryConditions)
-      .populate({ path: 'userId', select: 'name email phone' })
-      .populate({ path: 'addressId', select: 'name number address city state pincode' })
-      .populate({ path: 'products.productId', select: '' })
+      .populate({ path: "userId", select: "name email phone" })
+      .populate({ path: "addressId", select: "name number address city state pincode" })
+      .populate({ path: "products.productId", select: "" })
       .sort({ createdAt: -1 });
 
-    console.log('Fetched Orders:', orders);
+    console.log("Fetched Orders:", orders);
 
     res.status(200).json({
       success: true,
@@ -225,19 +240,23 @@ exports.getRecentOrders = async (req, res) => {
         fetchedAt: new Date(),
         filterApplied: {
           ...(month && { month: parseInt(month) }),
-          ...(month ? null : { recentOrdersFromDate: oneWeekAgo })
-        }
-      }
+          ...(year && { year: parseInt(year) }),
+          ...(month || year
+            ? null
+            : { recentOrdersFromDate: oneWeekAgo, toDate: now }),
+        },
+      },
     });
   } catch (error) {
-    console.error('Error in getRecentOrders:', error);
+    console.error("Error in getRecentOrders:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching recent orders',
-      error: error.message
+      message: "Error fetching recent orders",
+      error: error.message,
     });
   }
 };
+
 
 
 

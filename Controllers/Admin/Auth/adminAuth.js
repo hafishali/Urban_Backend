@@ -23,7 +23,7 @@ exports.register= async(req,res)=>{
     
 
         // Generate JWT token
-        const token = jwt.sign({ id: newAdmin._id, role: newAdmin.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign({ id: newAdmin._id, role: newAdmin.role }, process.env.JWT_SECRET, { expiresIn: '1w' });
 
         const responseAdmin = { email: newAdmin.email, username: newAdmin.username, role: newAdmin.role }; // Assuming role exists in schema
         return res.status(201).json({
@@ -55,7 +55,7 @@ exports.login = async(req,res)=>{
         const token = jwt.sign(
             { adminId: existingAdmin._id, role: existingAdmin.role },
             process.env.JWT_SECRET,
-            { expiresIn: '1d' } 
+            { expiresIn: '1w' } 
         );
         const responseAdmin = { email: existingAdmin.email, username: existingAdmin.username, role: existingAdmin.role }; // Assuming role exists in schema
         return res.status(200).json({

@@ -77,7 +77,7 @@ exports.verifyOTP = async (req, res) => {
 
         return res.status(201).json({
             message: 'User registered successfully',
-            user: { name: newUser.name, phone: newUser.phone },
+            user: { name: newUser.name, phone: newUser.phone ,userId: newUser._id,},
             token,
         });
     } catch (err) {

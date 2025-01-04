@@ -1,14 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const AdminOrderController = require('../../../Controllers/Admin/Orders/orderController')
+const jwtVerify = require('../../../Middlewares/jwtMiddleware')
 
 // Get all products
-router.get('/get', AdminOrderController.getAllOrder);
+router.get('/get', jwtVerify(['admin']),AdminOrderController.getAllOrder);
 
 // Route for updating the status of an order
-router.patch('/:orderId/status', AdminOrderController.updateOrderStatus);
+router.patch('/:orderId/edit', jwtVerify(['admin']), AdminOrderController.updateOrderStatus);
 
 // filter
-router.get('/filter', AdminOrderController.filterOrder);
+router.get('/filter',  jwtVerify(['admin']),AdminOrderController.filterOrder);
+
+router.patch('/edit/status',jwtVerify(['admin']), AdminOrderController.bulkUpdateOrderStatus)
 
 module.exports = router;
