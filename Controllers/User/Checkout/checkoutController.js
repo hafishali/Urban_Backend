@@ -40,29 +40,25 @@ exports.createCheckout = async (req, res) => {
           currentDate < coupon.startDate ||
           currentDate > coupon.endDate
         ) {
-          cart.coupon = null;
-          cart.discountedTotal = cart.totalPrice;
-          cart.coupenAmount = 0;
-          cart.discountType = null;
-          couponRemoved = true;
-        }
-        const cartCategories = cart.items.map((item) => item.productId.category._id.toString());
-        const couponCategories = coupon.category.map((id) => id.toString());
-
-        const hasMatchingCategory = cartCategories.some((categoryId) =>
-          couponCategories.includes(categoryId)
-        );
-
-        if (hasMatchingCategory) {
-          // Apply coupon discount
-          if (coupon.discountType === "percentage") {
-            couponAmount = (cart.totalPrice * coupon.discountValue) / 100;
-          } else if (coupon.discountType === "amount") {
-            couponAmount = coupon.discountValue;
+          const cartCategories = cart.items.map((item) => item.productId.category._id.toString());
+          const couponCategories = coupon.category.map((id) => id.toString());
+  
+          const hasMatchingCategory = cartCategories.some((categoryId) =>
+            couponCategories.includes(categoryId)
+          );
+  
+          if (hasMatchingCategory) {
+            // Apply coupon discount
+            if (coupon.discountType === "percentage") {
+              couponAmount = (cart.totalPrice * coupon.discountValue) / 100;
+            } else if (coupon.discountType === "amount") {
+              couponAmount = coupon.discountValue;
+            }
+  
+            discountedPrice = Math.max(cart.totalPrice - couponAmount, 0);
           }
-
-          discountedPrice = Math.max(cart.totalPrice - couponAmount, 0);
-        } else {
+        }
+         else {
           // Remove coupon if no categories match
           cart.coupon = null;
           cart.discountedTotal = cart.totalPrice;

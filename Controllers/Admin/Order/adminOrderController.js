@@ -41,10 +41,10 @@ exports.getAllOrder = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
     try {
         const { orderId } = req.params; // Order ID
-        const { status } = req.body; // New status
+        const { status,TrackId } = req.body; // New status
 
         // Validate status
-        const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid status value" });
         }
@@ -52,7 +52,7 @@ exports.updateOrderStatus = async (req, res) => {
         // Update the order's status
         const order = await Order.findByIdAndUpdate(
             orderId,
-            { status },
+            { status,TrackId},
             { new: true } // Return the updated document
         ).populate('userId', 'name') // Populate user name only
          .populate('addressId', 'address city state pincode') // Populate address details
@@ -67,3 +67,38 @@ exports.updateOrderStatus = async (req, res) => {
         res.status(500).json({ message: "Error updating order status", error: err.message });
     }
 };
+
+// bulk edit on status
+exports.bulkUpdateOrderStatus = async (req, res) => {
+    try {
+        const { orderIds, status } = req.body; 
+
+        
+        if (!Array.isArray(orderIds) || !orderIds.length) {
+            return res.status(400).json({ message: "Invalid or empty orderIds array" });
+        }
+
+        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message:"Invalid status value"});
+        }
+
+        // Update the status for each order in bulk
+        const orders = await Order.updateMany(
+            { _id: { $in: orderIds } },
+            { status },
+            { new: true } // Return updated documents
+        ).populate('userId', 'name') // Populate user name only
+         .populate('addressId', 'address city state pincode') // Populate address details
+         .populate('products.productId', 'title'); // Populate productId with title only
+
+        if (orders.nModified === 0) {
+            return res.status(404).json({ message: "No orders found or status already updated for all selected orders" });
+        }
+
+        res.status(200).json({ message: `${orders.nModified} orders updated successfully`, orders });
+    } catch (err) {
+        res.status(500).json({ message: "Error updating order statuses", error: err.message });
+    }
+};
+
