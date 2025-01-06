@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Invoice=require('../../Models/Admin/InvoiceModel')
+const crypto = require('crypto'); 
 
 const orderSchema = new mongoose.Schema({
   orderId: { type: Number, required: true, unique: true }, // Unique numeric order ID
