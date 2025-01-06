@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const invoiceSchema = new mongoose.Schema({
-  paymentId: { type: String, required: true, unique: true },
+  invoice_Number: { type: Number, required: true, unique: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   customerName: { type: String, required: true },
   customerMobile: { type: String, required: true },
@@ -14,7 +14,11 @@ const invoiceSchema = new mongoose.Schema({
       quantity: { type: Number, required: true },
     },
   ],
+  SubTotalAmount: { type: Number, required: true },
+  Delivery_Charge:{ type: Number },
+  Discounted_Amount:{ type: Number },
   totalAmount: { type: Number, required: true },
+  payment_method:{ type: String, required: true },
   status: {
     type: String,
     enum: ['Pending', 'Paid', 'Unpaid', 'Refund'],

@@ -1,6 +1,7 @@
 const Category = require('../../../Models/Admin/CategoryModel')
 const fs = require('fs');
 
+
 // create a new category
 exports.createCategory = async (req, res) => {
         const { name,description, isActive } = req.body;

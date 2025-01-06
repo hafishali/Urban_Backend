@@ -86,10 +86,15 @@ exports.placeOrder = async (req, res) => {
         select: 'discountValue discountType code title',
       });
 
-    if (!checkout || checkout.userId._id.toString() !== userId || !checkout.cartItems.length) {
-      throw new Error("Invalid Checkout ID or no products found in the checkout");
+    if (!checkout) {
+      throw new Error("Checkout not found");
     }
-    if (checkout.addressId._id.toString() !== addressId) {
+
+    if (!checkout.cartItems || checkout.cartItems.length === 0) {
+      throw new Error("No products found in the checkout");
+    }
+
+    if (!checkout.addressId || checkout.addressId._id.toString() !== addressId) {
       throw new Error("Invalid address ID or address mismatch in the checkout");
     }
 
@@ -135,19 +140,19 @@ exports.placeOrder = async (req, res) => {
       totalPrice += cartItem.quantity * productData.offerPrice;
       await productData.save({ session });
     }
-console.log({amount:checkout.totalPrice,discounted:checkout.discountedPrice})
+
     let discountedAmount = 0;
     let finalPayableAmount = checkout.totalPrice;
 
-    const existingCoupon = await Coupon.findById(checkout.coupen._id);
-
-    if (existingCoupon && existingCoupon.status === 'active') {
-      discountedAmount = checkout.totalPrice - checkout.discountedPrice;
-      finalPayableAmount = checkout.discountedPrice;
+    if (checkout.coupen && checkout.coupen._id) {
+      const existingCoupon = await Coupon.findById(checkout.coupen._id);
+      if (existingCoupon && existingCoupon.status === 'active') {
+        discountedAmount = checkout.totalPrice - checkout.discountedPrice;
+        finalPayableAmount = checkout.discountedPrice;
+      }
     }
     finalPayableAmount += deliveryCharge;
 
-    // Ensure that finalPayableAmount and discountedAmount are numbers
     discountedAmount = parseFloat(discountedAmount.toFixed(2));
     finalPayableAmount = parseFloat(finalPayableAmount.toFixed(2));
 
@@ -185,6 +190,7 @@ console.log({amount:checkout.totalPrice,discounted:checkout.discountedPrice})
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 
 
