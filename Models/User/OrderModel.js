@@ -61,19 +61,24 @@ orderSchema.pre('save', function (next) {
 
 orderSchema.post('save', async function (doc, next) {
   try {
-    // Populate userId and addressId fields
     await doc.populate({ path: 'userId', select: 'name phone' });
     await doc.populate({ path: 'addressId', select: 'address city state' });
 
-    // Check if an invoice already exists for this order
-    const existingInvoice = await Invoice.findOne({ paymentId: `PAY-${doc.orderId}` });
-    if (existingInvoice) {
-      return next(); // Skip invoice creation if already exists
-    }
+    const generateUniqueInvoiceNumber = async () => {
+      while (true) {
+        const randomPart = Array.from({ length: 16 }, () => crypto.randomInt(0, 10)).join('');
+        const existingInvoice = await Invoice.findOne({ invoice_Number: randomPart });
+        if (!existingInvoice) {
+          return randomPart; // Return the unique number if no match is found
+        }
+        // Loop continues if a duplicate is found
+      }
+    };
 
-    // Generate the invoice
+    const uniqueInvoiceNumber = await generateUniqueInvoiceNumber();
+
     const invoice = new Invoice({
-      paymentId: `PAY-${doc.orderId}`, // Generate a payment ID
+      invoice_Number: uniqueInvoiceNumber, // Unique 16-digit invoice number
       userId: doc.userId._id,
       customerName: doc.userId.name, // Get populated name
       customerMobile: doc.userId.phone, // Get populated phone
@@ -84,7 +89,11 @@ orderSchema.post('save', async function (doc, next) {
         price: product.price,
         quantity: product.quantity,
       })),
+      SubTotalAmount: doc.totalPrice,
+      Delivery_Charge: doc.deliveryCharge,
+      Discounted_Amount: doc.discountedAmount,
       totalAmount: doc.finalPayableAmount,
+      payment_method: doc.paymentMethod,
       status: doc.status,
     });
 
@@ -97,6 +106,8 @@ orderSchema.post('save', async function (doc, next) {
     next(error); // Pass the error to the next middleware
   }
 });
+
+
 
 
 
