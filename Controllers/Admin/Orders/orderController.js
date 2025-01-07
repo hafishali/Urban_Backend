@@ -101,70 +101,91 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
 
 
 
-exports.filterOrder = async (req, res) => {
+exports.filterOrders = async (req, res) => {
     try {
-        const { startDate, endDate, categories, status } = req.query;
-
-        // Build the query dynamically
-        const query = {};
-
-        // Validate and apply date filters if provided
-        if (startDate || endDate) {
-            const start = startDate ? new Date(startDate) : null;
-            const end = endDate ? new Date(endDate) : null;
-
-            // Check if the provided dates are valid
-            if (startDate && isNaN(start)) {
-                return res.status(400).json({ message: "Invalid startDate format" });
-            }
-            if (endDate && isNaN(end)) {
-                return res.status(400).json({ message: "Invalid endDate format" });
-            }
-
-            query.createdAt = {};
-            if (start) query.createdAt.$gte = start; // Greater than or equal to start date
-            if (end) query.createdAt.$lte = end; // Less than or equal to end date
+      const { startDate, endDate, categoryIds, status } = req.query;
+  
+      // Prepare input categories
+      const inputCategories = categoryIds ? categoryIds.split(',').map(id => id.trim()) : [];
+  
+      // Build the aggregation pipeline
+      const pipeline = [];
+  
+      // Match filters (startDate, endDate, status)
+      const match = {};
+      if (startDate || endDate) {
+        match.createdAt = {};
+        if (startDate) match.createdAt.$gte = new Date(startDate);
+        if (endDate) match.createdAt.$lte = new Date(endDate);
+      }
+      if (status) match.status = status;
+  
+      if (Object.keys(match).length) {
+        pipeline.push({ $match: match });
+      }
+  
+      // Lookup products and categories
+      pipeline.push(
+        {
+          $lookup: {
+            from: 'products', // Collection name for products
+            localField: 'products.productId',
+            foreignField: '_id',
+            as: 'productDetails',
+          },
+        },
+        {
+          $lookup: {
+            from: 'categories', // Collection name for categories
+            localField: 'productDetails.category',
+            foreignField: '_id',
+            as: 'categoryDetails',
+          },
         }
-
-        // Filter by order status
-        if (status) {
-            const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
-            if (!validStatuses.includes(status)) {
-                return res.status(400).json({ message: "Invalid status value" });
-            }
-            query.status = status;
-        }
-
-        // Filter by multiple categories
-        if (categories) {
-            const categoryArray = Array.isArray(categories) ? categories : [categories]; // Ensure it's an array
-            // Validate each category ID and create the filter condition
-            const validCategories = categoryArray.filter(category => mongoose.Types.ObjectId.isValid(category));
-
-            if (validCategories.length > 0) {
-                query['products.productId.category'] = { $in: validCategories.map(id => new mongoose.Types.ObjectId(id)) }; // Filter with $in for multiple categories
-            } else {
-                return res.status(400).json({ message: "Invalid category ID(s)" });
-            }
-        }
-
-        // Fetch orders with the required populated fields and applied filters
-        const filteredOrders = await Order.find(query)
-            .populate('userId', 'name phone') // Populate user details
-            .populate('addressId', 'address city state pincode') // Populate address details
-            .populate({
-                path: 'products.productId', // Populate product details
-                populate: { 
-                    path: 'category', 
-                    select: 'name' // Populate category and select its name
-                }
-            })
-            .sort({ createdAt: -1 }); // Sort by creation date descending
-
-        res.status(200).json(filteredOrders);
-    } catch (err) {
-        console.error("Error in filterOrder:", err);
-        res.status(500).json({ message: "Error fetching orders", error: err.message });
+      );
+  
+      // Optionally filter by categories if categoryIds are provided
+      if (inputCategories.length) {
+        pipeline.push({
+          $match: {
+            'categoryDetails._id': { $in: inputCategories.map(id => new mongoose.Types.ObjectId(id)) },
+          },
+        });
+      }
+  
+      // Optionally project only the necessary fields
+      pipeline.push({
+        $project: {
+          orderId: 1,
+          userId: 1,
+          addressId: 1,
+          products: 1,
+          totalPrice: 1,
+          status: 1,
+          categoryDetails: 1,
+        },
+      });
+  
+      // Execute the pipeline
+      const orders = await Order.aggregate(pipeline);
+  
+      // Extract unmatched categories (if necessary)
+      const allOrderCategories = [
+        ...new Set(
+          orders.flatMap(order =>
+            order.categoryDetails.map(category => category._id.toString())
+          )
+        ),
+      ];
+      const unmatchedCategories = inputCategories.filter(cat => !allOrderCategories.includes(cat));
+  
+      res.status(200).json({ orders, unmatchedCategories });
+    } catch (error) {
+      console.error('Error filtering orders:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
-};
+  };
+  
+  
+  
 

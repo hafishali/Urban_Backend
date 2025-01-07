@@ -10,7 +10,7 @@ router.get('/get', jwtVerify(['admin']),AdminOrderController.getAllOrder);
 router.patch('/:orderId/edit', jwtVerify(['admin']), AdminOrderController.updateOrderStatus);
 
 // filter
-router.get('/filter',  jwtVerify(['admin']),AdminOrderController.filterOrder);
+router.get('/filter',  jwtVerify(['admin']),AdminOrderController.filterOrders);
 
 router.patch('/edit/status',jwtVerify(['admin']), AdminOrderController.bulkUpdateOrderStatus)
 

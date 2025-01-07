@@ -104,6 +104,7 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
 
 // filter order
 exports.filterOrders = async (req, res) => {
+    console.log('sadf')
     try {
       const { startDate, endDate, categoryIds, status } = req.query;
   
@@ -113,12 +114,8 @@ exports.filterOrders = async (req, res) => {
       // Filter by created date (if startDate or endDate is provided)
       if (startDate || endDate) {
         query.createdAt = {};
-        if (startDate) {
-          query.createdAt.$gte = new Date(startDate); // Greater than or equal to startDate
-        }
-        if (endDate) {
-          query.createdAt.$lte = new Date(endDate); // Less than or equal to endDate
-        }
+        if (startDate) query.createdAt.$gte = new Date(startDate); // Greater than or equal to startDate
+        if (endDate) query.createdAt.$lte = new Date(endDate); // Less than or equal to endDate
       }
   
       // Filter by order status
@@ -126,29 +123,62 @@ exports.filterOrders = async (req, res) => {
         query.status = status;
       }
   
-      // Filter by multiple category IDs (inside products array)
-      if (categoryIds) {
-        const categoryArray = categoryIds.split(','); // Convert categoryIds string to an array
-        query['products.productId'] = { $in: categoryArray };
-      }
+      // Prepare input categories for comparison
+      const inputCategories = categoryIds ? categoryIds.split(',').map(id => id.trim()) : [];
   
-      // Perform the query
+      // Query orders with filters
       const orders = await Order.find(query)
         .populate('userId', 'name email') // Populate user details
         .populate('addressId', 'city street') // Populate address details
         .populate({
-          path: 'products.productId',
+          path: 'products.productId', // Populate product details
           select: 'name category',
-          populate: { path: 'category', select: 'name' }, // Populate category details
+          populate: { path: 'category', select: 'name _id' }, // Populate category details
         })
         .populate('coupen', 'code discountedAmount') // Populate coupon details
         .exec();
   
-      res.status(200).json(orders);
+      // Collect all categories from orders
+      const allOrderCategories = [];
+      orders.forEach(order => {
+        order.products.forEach(product => {
+          if (product.productId && product.productId.category) {
+            const categoryId = product.productId.category._id.toString(); // Convert ObjectId to string
+            if (!allOrderCategories.includes(categoryId)) {
+              allOrderCategories.push(categoryId); // Add unique category IDs
+            }
+          }
+        });
+      });
+  
+      // Compare input categories with categories in orders
+      console.log('Input Categories:', inputCategories);
+      console.log('All Order Categories:', allOrderCategories);
+  
+      const unmatchedCategories = inputCategories.filter(
+        categoryId => !allOrderCategories.includes(categoryId)
+      );
+      console.log('Unmatched Categories:', unmatchedCategories);
+  
+      // Filter out orders with no matching products if `categoryIds` was provided
+      const filteredOrders = categoryIds
+        ? orders.filter(order =>
+            order.products.some(
+              product =>
+                product.productId &&
+                product.productId.category &&
+                inputCategories.includes(product.productId.category._id.toString())
+            )
+          )
+        : orders;
+  
+      res.status(200).json({ filteredOrders, unmatchedCategories });
     } catch (error) {
       console.error('Error filtering orders:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   };
+  
+  
   
 
