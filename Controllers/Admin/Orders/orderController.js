@@ -103,10 +103,53 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
 
 exports.filterOrder = async (req, res) => {
     try {
-        const { startDate, endDate, category, status } = req.query;
+        const { startDate, endDate, categories, status } = req.query;
 
-        // Fetch all orders with the required populated fields
-        const allOrders = await Order.find()
+        // Build the query dynamically
+        const query = {};
+
+        // Validate and apply date filters if provided
+        if (startDate || endDate) {
+            const start = startDate ? new Date(startDate) : null;
+            const end = endDate ? new Date(endDate) : null;
+
+            // Check if the provided dates are valid
+            if (startDate && isNaN(start)) {
+                return res.status(400).json({ message: "Invalid startDate format" });
+            }
+            if (endDate && isNaN(end)) {
+                return res.status(400).json({ message: "Invalid endDate format" });
+            }
+
+            query.createdAt = {};
+            if (start) query.createdAt.$gte = start; // Greater than or equal to start date
+            if (end) query.createdAt.$lte = end; // Less than or equal to end date
+        }
+
+        // Filter by order status
+        if (status) {
+            const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
+            if (!validStatuses.includes(status)) {
+                return res.status(400).json({ message: "Invalid status value" });
+            }
+            query.status = status;
+        }
+
+        // Filter by multiple categories
+        if (categories) {
+            const categoryArray = Array.isArray(categories) ? categories : [categories]; // Ensure it's an array
+            // Validate each category ID and create the filter condition
+            const validCategories = categoryArray.filter(category => mongoose.Types.ObjectId.isValid(category));
+
+            if (validCategories.length > 0) {
+                query['products.productId.category'] = { $in: validCategories.map(id => new mongoose.Types.ObjectId(id)) }; // Filter with $in for multiple categories
+            } else {
+                return res.status(400).json({ message: "Invalid category ID(s)" });
+            }
+        }
+
+        // Fetch orders with the required populated fields and applied filters
+        const filteredOrders = await Order.find(query)
             .populate('userId', 'name phone') // Populate user details
             .populate('addressId', 'address city state pincode') // Populate address details
             .populate({
@@ -118,46 +161,10 @@ exports.filterOrder = async (req, res) => {
             })
             .sort({ createdAt: -1 }); // Sort by creation date descending
 
-        // Apply filters on the populated data
-        let filteredOrders = allOrders;
-
-        // Filter by order status
-        if (status) {
-            const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
-            if (!validStatuses.includes(status)) {
-                return res.status(400).json({ message: "Invalid status value" });
-            }
-            filteredOrders = filteredOrders.filter(order => order.status === status);
-        }
-
-        // Filter by date range
-        if (startDate || endDate) {
-            const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : null;
-            const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : null;
-            filteredOrders = filteredOrders.filter(order => {
-                const createdAt = new Date(order.createdAt).getTime();
-                return (!start || createdAt >= start) && (!end || createdAt <= end);
-            });
-        }
-
-        // Filter by category
-        if (category) {
-            if (mongoose.Types.ObjectId.isValid(category)) {
-                filteredOrders = filteredOrders.filter(order =>
-                    order.products.some(product => 
-                        product.productId &&
-                        product.productId.category &&
-                        String(product.productId.category._id) === category
-                    )
-                );
-            } else {
-                return res.status(400).json({ message: "Invalid category ID" });
-            }
-        }
-
         res.status(200).json(filteredOrders);
     } catch (err) {
         console.error("Error in filterOrder:", err);
         res.status(500).json({ message: "Error fetching orders", error: err.message });
     }
 };
+

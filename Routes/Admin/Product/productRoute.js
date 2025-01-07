@@ -24,4 +24,8 @@ router.post('/delete-product-image/:id', jwtVerify(['admin']), productController
 // Delete a product
 router.delete('/delete-product/:id',jwtVerify(['admin']), productController.deleteProduct);
 
+// filter product based on category
+router.post('/filter',jwtVerify(['admin']), productController.filterProductsByCategoryId );
+
+
 module.exports = router;

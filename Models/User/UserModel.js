@@ -46,6 +46,8 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    isWalkIn: { type: Boolean, default: false },
+    couponCode: { type: mongoose.Schema.Types.ObjectId, ref: 'walkinCoupen' },
     addresses: [{ type: mongoose.Schema.Types.ObjectId, ref:'Address' }]
 }, { timestamps: true });
 

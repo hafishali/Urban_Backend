@@ -36,6 +36,7 @@ const reviewRoutes  = require('./Routes/User/Review/reviewRoute')
 const adminOrderRoutes = require('./Routes/Admin/Order/orderRoute')
 const deliveryFeeRoutes = require('./Routes/Admin/DeliveryFee/deliveryFeeRoute')
 const MainSearchRoutes = require('./Routes/User/Main Search/SearchRoutes');
+const walk_inCoupon=require('./Routes/User/Walk-inCoupon/Walk-inRoute')
 
 
 const path = require('path')
@@ -79,6 +80,8 @@ app.use('/user/checkout',checkoutRoutes)
 app.use('/user/order',orderRoutes)
 app.use('/user/review',reviewRoutes)
 app.use('/user/search',MainSearchRoutes)
+app.use('/walkin/coupon',walk_inCoupon)
+
 
 
 

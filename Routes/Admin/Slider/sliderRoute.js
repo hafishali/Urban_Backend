@@ -17,4 +17,7 @@ router.patch('/:id', jwtVerify(['admin']), multer.single('image'), SliderControl
 // delete slider
 router.delete('/:id', jwtVerify(['admin']), SliderController.deleteSlider);
 
+// search slider
+router.get('/search',jwtVerify(['admin']), SliderController.searchSlider)
+
 module.exports = router;

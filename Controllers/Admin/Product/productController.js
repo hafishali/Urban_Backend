@@ -256,3 +256,26 @@ exports.deleteProduct = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// filter products
+exports.filterProductsByCategoryId = async (req, res) => {
+  try {
+    const { categoryIds } = req.body;
+    if (!categoryIds || !Array.isArray(categoryIds) || categoryIds.length === 0) {
+      return res.status(400).json({ message: 'No category IDs provided for filtering' });
+    }
+    const filteredProducts = await Product.find({
+      category: { $in: categoryIds }
+    });
+    res.status(200).json({
+      message: 'Products filtered successfully',
+      products: filteredProducts,
+    });
+  } catch (error) {
+    console.error('Error filtering products by category ID:', error);
+    res.status(500).json({
+      message: 'Failed to filter products',
+      error: error.message,
+    });
+  }
+};

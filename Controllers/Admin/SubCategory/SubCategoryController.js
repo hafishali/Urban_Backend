@@ -135,9 +135,7 @@ exports.searchSubCategory = async (req, res) => {
             query.title = { $regex: name, $options: 'i' }; // Case-insensitive regex
         }
 
-        if (isActive !== undefined) {
-            query.isActive = isActive === 'true' || isActive === true; // Convert to boolean
-          }
+       
 
         const SubCategoryData = await SubCategory.find(query).populate('category');
 
