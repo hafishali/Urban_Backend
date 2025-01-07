@@ -4,41 +4,50 @@ const User = require('../../../Models/User/UserModel');
 const passport = require('passport');
 const NodeCache = require('node-cache');
 const otpGenerator = require('otp-generator');
+const Coupon=require('../../../Models/User/WalkinCoupen')
 const axios = require('axios');
 
 const cache = new NodeCache({ stdTTL: 300 });  
 const api_key=process.env.FACTOR_API_KEY
 
 // sending otp for registration
-exports.register = async (req,res) => {
-    const { name, phone, password } = req.body;
+exports.register = async (req, res) => {
+    const { name, phone, password, isWalkIn } = req.body; 
+
     try {
         const existingUser = await User.findOne({ phone });
         if (existingUser) {
             return res.status(400).json({ msg: 'Phone number already exists' });
         }
 
-        
+        // Generate OTP
         const otp = otpGenerator.generate(6, { digits: true, upperCaseAlphabets: false, specialChars: false });
 
-        
+        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        cache.set(phone, { name, phone, password: hashedPassword, otp });
+        
+      
 
-        const response = await axios.get(`https://2factor.in/API/V1/${api_key}/SMS/${phone}/AUTOGEN/OTP1`)
+       
+        cache.set(phone, { name, phone, password: hashedPassword, otp, isWalkIn });
+
+        
+        const response = await axios.get(`https://2factor.in/API/V1/${api_key}/SMS/${phone}/AUTOGEN/OTP1`);
         if (response.data.Status !== 'Success') {
             return res.status(500).json({ message: 'Failed to send OTP. Try again later.' });
         }
+
+        console.log(`OTP ${otp} sent to phone: ${phone}`); 
         
-        console.log(`OTP ${otp} sent to phone: ${phone}`); // Log for debugging
 
         return res.status(200).json({ message: 'OTP sent successfully' });
-        console.error(err.message);
     } catch (err) {
-        res.status(500).json({ message: "server error", error: err.message})
+        console.error(err.message);
+        return res.status(500).json({ message: 'Server error', error: err.message });
     }
-}
+};
+
 
 // verify otp and register a user
 exports.verifyOTP = async (req, res) => {
@@ -48,7 +57,7 @@ exports.verifyOTP = async (req, res) => {
         // Retrieve stored data from cache
         const cachedData = cache.get(phone);
         if (!cachedData) {
-            return res.status(400).json({ message: 'OTP  invalid or expired ' });
+            return res.status(400).json({ message: 'OTP invalid or expired' });
         }
 
         // Verify the OTP with 2Factor API
@@ -63,11 +72,22 @@ exports.verifyOTP = async (req, res) => {
             phone: cachedData.phone,
             password: cachedData.password,
         });
-        await newUser.save();
+        const savedUser = await newUser.save(); // Ensure the user is fully saved
+        console.log(savedUser)
+
+        let newCoupon = null;
+        if (cachedData.isWalkIn) {
+            const couponCode = `WALK-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+            newCoupon = new Coupon({
+                code: couponCode,
+                userId: savedUser._id, // Use the saved user's _id
+            });
+            await newCoupon.save();
+        }
 
         // Generate JWT token
         const token = jwt.sign(
-            { userId: newUser._id, role: newUser.role },
+            { userId: savedUser._id, role: savedUser.role },
             process.env.JWT_SECRET,
             { expiresIn: '1d' }
         );
@@ -77,7 +97,8 @@ exports.verifyOTP = async (req, res) => {
 
         return res.status(201).json({
             message: 'User registered successfully',
-            user: { name: newUser.name, phone: newUser.phone ,userId: newUser._id,},
+            user: { name: savedUser.name, phone: savedUser.phone, userId: savedUser._id },
+            coupon: newCoupon ? newCoupon.code : null, // Check if newCoupon exists
             token,
         });
     } catch (err) {
@@ -86,33 +107,42 @@ exports.verifyOTP = async (req, res) => {
     }
 };
 
+
+
+
 // Login a user
 exports.login = async (req, res) => {
     const { phone, password } = req.body;
+
     try {
         const user = await User.findOne({ phone });
+        
         if (!user) {
-            return res.status(400).json({ message: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
+        
         if (!isPasswordValid) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
 
         const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        // Include userId in the response
-        res.status(200).json({ 
-            message: 'User logged in successfully', 
+        const coupon = await Coupon.findOne({ userId: user._id });
+
+        res.status(200).json({
+            message: 'User logged in successfully',
             userId: user._id, // Added userId
-            phone: user.phone, 
-            token: token 
+            phone: user.phone,
+            token: token,
+            coupon // Included coupon in response
         });
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
 
 
 // otp for forget passsword

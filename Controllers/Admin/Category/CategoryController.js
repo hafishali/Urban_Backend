@@ -152,6 +152,7 @@ exports.searchCategory = async (req, res) => {
         const categoriesWithImageUrl = categories.map((category) => ({
             id: category._id,
             name: category.name,
+            isActive: category.isActive,
             description: category.description,
             imageUrl: category.image
         }));

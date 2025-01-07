@@ -94,3 +94,38 @@ exports.deleteSlider = async (req, res) => {
         res.status(500).json({ message: 'Error deleting slider', error: err.message})
     }
 }
+
+// search slider
+exports.searchSlider = async (req, res) => {
+    const { name } = req.query;
+
+    try {
+        const query = {};
+
+        if (name) {
+            query.$or = [
+                { title: { $regex: name, $options: 'i' } }, 
+                 
+            ];
+        }
+
+        const sliderData = await Slider.find(query).populate('category');
+
+        // Add image URLs to the response
+        const sliders = sliderData.map((slider) => ({
+            id: slider._id,
+            title: slider.title,
+            MainCategory: {
+                id: slider.category?._id,
+                name: slider.category?.name,
+                description: slider.category?.description,
+                imageUrl: slider.category?.image
+            },
+            SubImageUrl: slider.image
+        }));
+
+        res.status(200).json(sliders);
+    } catch (err) {
+        res.status(500).json({ message: 'Error searching sliders', error: err.message });
+    }
+};

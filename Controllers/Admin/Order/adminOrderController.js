@@ -102,3 +102,53 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
     }
 };
 
+// filter order
+exports.filterOrders = async (req, res) => {
+    try {
+      const { startDate, endDate, categoryIds, status } = req.query;
+  
+      // Initialize the query object
+      const query = {};
+  
+      // Filter by created date (if startDate or endDate is provided)
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) {
+          query.createdAt.$gte = new Date(startDate); // Greater than or equal to startDate
+        }
+        if (endDate) {
+          query.createdAt.$lte = new Date(endDate); // Less than or equal to endDate
+        }
+      }
+  
+      // Filter by order status
+      if (status) {
+        query.status = status;
+      }
+  
+      // Filter by multiple category IDs (inside products array)
+      if (categoryIds) {
+        const categoryArray = categoryIds.split(','); // Convert categoryIds string to an array
+        query['products.productId'] = { $in: categoryArray };
+      }
+  
+      // Perform the query
+      const orders = await Order.find(query)
+        .populate('userId', 'name email') // Populate user details
+        .populate('addressId', 'city street') // Populate address details
+        .populate({
+          path: 'products.productId',
+          select: 'name category',
+          populate: { path: 'category', select: 'name' }, // Populate category details
+        })
+        .populate('coupen', 'code discountedAmount') // Populate coupon details
+        .exec();
+  
+      res.status(200).json(orders);
+    } catch (error) {
+      console.error('Error filtering orders:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  };
+  
+
