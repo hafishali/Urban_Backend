@@ -12,7 +12,7 @@ const api_key=process.env.FACTOR_API_KEY
 
 // sending otp for registration
 exports.register = async (req, res) => {
-    const { name, phone, password, isWalkIn } = req.body; 
+    const { name, phone, password,email, isWalkIn } = req.body; 
 
     try {
         const existingUser = await User.findOne({ phone });
@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
       
 
        
-        cache.set(phone, { name, phone, password: hashedPassword, otp, isWalkIn });
+        cache.set(phone, { name, phone,email ,password: hashedPassword, otp, isWalkIn });
 
         
         const response = await axios.get(`https://2factor.in/API/V1/${api_key}/SMS/${phone}/AUTOGEN/OTP1`);
@@ -71,6 +71,7 @@ exports.verifyOTP = async (req, res) => {
             name: cachedData.name,
             phone: cachedData.phone,
             password: cachedData.password,
+            email:cachedData.email
         });
         const savedUser = await newUser.save(); // Ensure the user is fully saved
         console.log(savedUser)
