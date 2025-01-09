@@ -23,6 +23,7 @@ const orderController = require('./Routes/User/Order/OrderRoute')
 const DashboardController=require('./Routes/Admin/Dashboard/DashboardRoute')
 const adminProfileController=require('./Routes/Admin/Profile/ProfileRoute')
 const invoiceRoutes = require('./Routes/Admin/Invoice/invoiceRoute');
+require('./Controllers/Admin/Coupon/couponController')
 
 const userCartRoutes = require('./Routes/User/Cart/cartRoute')
 const wishlistRoutes = require('./Routes/User/Wishlist/wishlistRoute')

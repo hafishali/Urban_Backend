@@ -50,26 +50,32 @@ exports.getCategoryById = async (req, res)=> {
 //filter category
 exports.filterCategories = async (req, res) => {
     try {
-        const { size, minPrice, maxPrice, categoryId, categoryName } = req.query;
+        const { size, minPrice, maxPrice, material, categoryId, subcategoryId } = req.query;
+
+        if (!categoryId) {
+            return res.status(400).json({ message: 'Category ID is required' });
+        }
 
         // Build the aggregation pipeline
         const pipeline = [];
 
-        // Match by category ID if provided
-        if (categoryId) {
+        // First stage: Match products by category ID
+        pipeline.push({
+            $match: { category: new mongoose.Types.ObjectId(categoryId) }
+        });
+
+        // Match by subcategory if provided
+        if (subcategoryId) {
             pipeline.push({
-                $match: { category: new mongoose.Types.ObjectId(categoryId) },
+                $match: { subcategory: new mongoose.Types.ObjectId(subcategoryId) }
             });
         }
-        if (categoryName) {
-            const category = await Category.findOne({ name: categoryName });
-            if (category) {
-                pipeline.push({
-                    $match: { category: category._id },
-                });
-            } else {
-                return res.status(404).json({ message: 'Category not found' });
-            }
+
+        // Match by material if provided
+        if (material) {
+            pipeline.push({
+                $match: { material: material }
+            });
         }
 
         // Match by price range
@@ -78,9 +84,9 @@ exports.filterCategories = async (req, res) => {
                 $match: {
                     offerPrice: {
                         ...(minPrice ? { $gte: parseFloat(minPrice) } : {}),
-                        ...(maxPrice ? { $lte: parseFloat(maxPrice) } : {}),
-                    },
-                },
+                        ...(maxPrice ? { $lte: parseFloat(maxPrice) } : {})
+                    }
+                }
             });
         }
 
@@ -91,11 +97,11 @@ exports.filterCategories = async (req, res) => {
                     colors: {
                         $elemMatch: {
                             sizes: {
-                                $elemMatch: { size: size },
-                            },
-                        },
-                    },
-                },
+                                $elemMatch: { size: size }
+                            }
+                        }
+                    }
+                }
             });
         }
 
@@ -105,39 +111,86 @@ exports.filterCategories = async (req, res) => {
                 from: 'categories',
                 localField: 'category',
                 foreignField: '_id',
-                as: 'categoryDetails',
-            },
+                as: 'categoryDetails'
+            }
+        });
+
+        // Lookup to fetch subcategory details
+        pipeline.push({
+            $lookup: {
+                from: 'subcategories',
+                localField: 'subcategory',
+                foreignField: '_id',
+                as: 'subcategoryDetails'
+            }
         });
 
         // Unwind the category details array
         pipeline.push({
-            $unwind: '$categoryDetails',
+            $unwind: '$categoryDetails'
         });
 
-        // Group products by category
+        // Unwind the subcategory details array if subcategory exists
         pipeline.push({
-            $group: {
-                _id: '$categoryDetails._id',
-                name: { $first: '$categoryDetails.name' },
-                description: { $first: '$categoryDetails.description' },
-                imageUrl: { $first: '$categoryDetails.image' },
-                products: { $push: '$$ROOT' },
-            },
+            $unwind: {
+                path: '$subcategoryDetails',
+                preserveNullAndEmptyArrays: true
+            }
         });
 
-        const filteredCategories = await Product.aggregate(pipeline);
+        // Project the final structure
+        pipeline.push({
+            $project: {
+                _id: 1,
+                name: 1,
+                description: 1,
+                material: 1,
+                offerPrice: 1,
+                originalPrice: 1,
+                colors: 1,
+                images: 1,
+                category: {
+                    _id: '$categoryDetails._id',
+                    name: '$categoryDetails.name',
+                    description: '$categoryDetails.description'
+                },
+                subcategory: {
+                    _id: '$subcategoryDetails._id',
+                    title: '$subcategoryDetails.title',
+                    
+                }
+            }
+        });
 
-        // Add image URL to category
-        const response = filteredCategories.map(category => ({
-            id: category._id,
-            name: category.name,
-            description: category.description,
-            imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${category.imageUrl}`,
-            products: category.products,
+        const filteredProducts = await Product.aggregate(pipeline);
+
+        // Add full URLs to product images
+        const response = filteredProducts.map(product => ({
+            ...product,
+            images: product.images.map(image => 
+                `${req.protocol}://${req.get('host')}/uploads/products/${image}`
+            )
         }));
 
-        res.status(200).json(response);
+        res.status(200).json({
+            categoryId: categoryId,
+            subcategoryId: subcategoryId || null,
+            totalProducts: response.length,
+            filters: {
+                material: material || null,
+                size: size || null,
+                priceRange: {
+                    min: minPrice || null,
+                    max: maxPrice || null
+                }
+            },
+            products: response
+        });
+
     } catch (err) {
-        res.status(500).json({ message: 'Error filtering categories', error: err.message });
+        res.status(500).json({ 
+            message: 'Error filtering products', 
+            error: err.message 
+        });
     }
 };

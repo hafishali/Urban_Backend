@@ -97,95 +97,219 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
     }
 };
 
-
-
-
-
+// filter order
 exports.filterOrders = async (req, res) => {
     try {
       const { startDate, endDate, categoryIds, status } = req.query;
   
-      // Prepare input categories
-      const inputCategories = categoryIds ? categoryIds.split(',').map(id => id.trim()) : [];
+      // Build match stage for aggregation
+      const matchStage = {};
   
-      // Build the aggregation pipeline
-      const pipeline = [];
-  
-      // Match filters (startDate, endDate, status)
-      const match = {};
       if (startDate || endDate) {
-        match.createdAt = {};
-        if (startDate) match.createdAt.$gte = new Date(startDate);
-        if (endDate) match.createdAt.$lte = new Date(endDate);
-      }
-      if (status) match.status = status;
-  
-      if (Object.keys(match).length) {
-        pipeline.push({ $match: match });
+        matchStage.createdAt = {};
+        if (startDate) matchStage.createdAt.$gte = new Date(startDate);
+        if (endDate) matchStage.createdAt.$lte = new Date(endDate);
       }
   
-      // Lookup products and categories
-      pipeline.push(
+      if (status) {
+        matchStage.status = status;
+      }
+  
+      // Use aggregation pipeline with proper ObjectId handling
+      const orders = await Order.aggregate([
         {
-          $lookup: {
-            from: 'products', // Collection name for products
-            localField: 'products.productId',
-            foreignField: '_id',
-            as: 'productDetails',
-          },
+          $match: matchStage
         },
+        // Unwind products array to properly handle the lookups
+        {
+          $unwind: {
+            path: "$products",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        // Lookup and join with products
         {
           $lookup: {
-            from: 'categories', // Collection name for categories
-            localField: 'productDetails.category',
-            foreignField: '_id',
-            as: 'categoryDetails',
-          },
+            from: "products",
+            let: { productId: "$products.productId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$productId"] }
+                }
+              }
+            ],
+            as: "products.productDetails"
+          }
+        },
+        // Unwind product details
+        {
+          $unwind: {
+            path: "$products.productDetails",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        // Lookup categories for products
+        {
+          $lookup: {
+            from: "categories",
+            let: { categoryId: "$products.productDetails.category" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$categoryId"] }
+                }
+              }
+            ],
+            as: "products.productDetails.category"
+          }
+        },
+        // Unwind category
+        {
+          $unwind: {
+            path: "$products.productDetails.category",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        // Group back to original structure
+        {
+          $group: {
+            _id: "$_id",
+            userId: { $first: "$userId" },
+            addressId: { $first: "$addressId" },
+            products: {
+              $push: {
+                productId: "$products.productDetails",
+                quantity: "$products.quantity",
+                price: "$products.price"
+              }
+            },
+            totalAmount: { $first: "$totalAmount" },
+            status: { $first: "$status" },
+            createdAt: { $first: "$createdAt" },
+            updatedAt: { $first: "$updatedAt" },
+            coupen: { $first: "$coupen" }
+          }
+        },
+        // Lookup user details
+        {
+          $lookup: {
+            from: "users",
+            let: { userId: "$userId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$userId"] }
+                }
+              },
+              {
+                $project: {
+                  name: 1,
+                  email: 1
+                }
+              }
+            ],
+            as: "userDetails"
+          }
+        },
+        // Lookup address details
+        {
+          $lookup: {
+            from: "addresses",
+            let: { addressId: "$addressId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$addressId"] }
+                }
+              },
+              {
+                $project: {
+                  city: 1,
+                  street: 1
+                }
+              }
+            ],
+            as: "addressDetails"
+          }
+        },
+        // Lookup coupon details
+        {
+          $lookup: {
+            from: "coupens",
+            let: { coupenId: "$coupen" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$coupenId"] }
+                }
+              },
+              {
+                $project: {
+                  code: 1,
+                  discountedAmount: 1
+                }
+              }
+            ],
+            as: "coupenDetails"
+          }
+        },
+        // Final field structure
+        {
+          $addFields: {
+            userId: { $arrayElemAt: ["$userDetails", 0] },
+            addressId: { $arrayElemAt: ["$addressDetails", 0] },
+            coupen: { $arrayElemAt: ["$coupenDetails", 0] }
+          }
+        },
+        // Cleanup temporary fields
+        {
+          $project: {
+            userDetails: 0,
+            addressDetails: 0,
+            coupenDetails: 0
+          }
         }
-      );
+      ]);
   
-      // Optionally filter by categories if categoryIds are provided
-      if (inputCategories.length) {
-        pipeline.push({
-          $match: {
-            'categoryDetails._id': { $in: inputCategories.map(id => new mongoose.Types.ObjectId(id)) },
-          },
+      let filteredOrders = orders;
+      let unmatchedCategories = [];
+  
+      // Handle category filtering if specified
+      if (categoryIds) {
+        const inputCategories = categoryIds.split(',').map(id => id.trim());
+        
+        const allOrderCategories = new Set();
+        orders.forEach(order => {
+          order.products.forEach(product => {
+            if (product.productId?.category?._id) {
+              allOrderCategories.add(product.productId.category._id.toString());
+            }
+          });
         });
+  
+        unmatchedCategories = inputCategories.filter(
+          categoryId => !allOrderCategories.has(categoryId)
+        );
+  
+        filteredOrders = orders.filter(order =>
+          order.products.some(product =>
+            product.productId?.category?._id &&
+            inputCategories.includes(product.productId.category._id.toString())
+          )
+        );
       }
   
-      // Optionally project only the necessary fields
-      pipeline.push({
-        $project: {
-          orderId: 1,
-          userId: 1,
-          addressId: 1,
-          products: 1,
-          totalPrice: 1,
-          status: 1,
-          categoryDetails: 1,
-        },
+      res.status(200).json({
+        filteredOrders,
+        unmatchedCategories,
+        totalOrders: filteredOrders.length
       });
   
-      // Execute the pipeline
-      const orders = await Order.aggregate(pipeline);
-  
-      // Extract unmatched categories (if necessary)
-      const allOrderCategories = [
-        ...new Set(
-          orders.flatMap(order =>
-            order.categoryDetails.map(category => category._id.toString())
-          )
-        ),
-      ];
-      const unmatchedCategories = inputCategories.filter(cat => !allOrderCategories.includes(cat));
-  
-      res.status(200).json({ orders, unmatchedCategories });
     } catch (error) {
       console.error('Error filtering orders:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
-  };
-  
-  
+};
   
 
