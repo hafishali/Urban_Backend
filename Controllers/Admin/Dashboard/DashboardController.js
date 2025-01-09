@@ -60,7 +60,7 @@ exports.getStats = async (req, res) => {
             place,       
             startMonth, 
             endMonth, 
-            year        
+            year,Orderstatus       
         } = req.query;
   
         
@@ -86,7 +86,7 @@ exports.getStats = async (req, res) => {
   
         
         const matchStage = {
-            status: 'Pending', 
+            status:Orderstatus?Orderstatus:'Delivered', 
             createdAt: {
                 $gte: new Date(currentYear, startMonthParsed - 1, 1),
                 $lt: new Date(currentYear, endMonthParsed, 1)
