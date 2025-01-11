@@ -3,10 +3,10 @@ const Product = require('../../../Models/Admin/ProductModel');
 // Add a new product
 exports.addProduct = async (req, res) => {
   try {
-    // Process uploaded image paths
-    const imagePaths = req.files ? req.files.map((file) => file.filename) : [];
-    
-    // Robust colors parsing with fallback and validation
+    // Step 1: Extract image URLs from S3 upload
+    const imageUrls = req.files ? req.files.map((file) => file.location) : [];
+
+    // Step 2: Parse and validate colors with robust error handling
     let colors = [];
     try {
       colors = typeof req.body.colors === "string" 
@@ -15,49 +15,54 @@ exports.addProduct = async (req, res) => {
     } catch (parseError) {
       return res.status(400).json({
         error: "Invalid colors format",
-        details: parseError.message
+        details: parseError.message,
       });
     }
+
     // Validate colors structure
-    const validatedColors = colors.map(color => ({
-      color: color.color || '',
-      sizes: (color.sizes || []).map(size => ({
-        size: size.size || '',
-        stock: parseInt(size.stock || 0, 10)
-      }))
+    const validatedColors = colors.map((color) => ({
+      color: color.color || "",
+      sizes: (color.sizes || []).map((size) => ({
+        size: size.size || "",
+        stock: parseInt(size.stock || 0, 10),
+      })),
     }));
 
-    // Calculate total stock from sizes
-    const totalStock = validatedColors.reduce((total, color) => 
-      total + color.sizes.reduce((colorTotal, size) => colorTotal + size.stock, 0)
-    , 0);
+    // Step 3: Calculate total stock
+    const totalStock = validatedColors.reduce(
+      (total, color) =>
+        total +
+        color.sizes.reduce((colorTotal, size) => colorTotal + size.stock, 0),
+      0
+    );
 
-    // Create the new product
+    // Step 4: Create the new product with S3 image URLs
     const newProduct = new Product({
       ...req.body,
-      images: imagePaths,
+      images: imageUrls, // Save S3 URLs here
       colors: validatedColors,
       totalStock,
     });
 
     const savedProduct = await newProduct.save();
 
-    // Respond with success message
+    // Step 5: Respond with success message
     res.status(201).json({
       message: "Product added successfully",
       product: savedProduct,
     });
   } catch (error) {
     console.error("Error adding product:", error);
-    
-    // More detailed error response
+
+    // Detailed error response
     res.status(400).json({
       error: "Product creation failed",
       details: error.message,
-      validationErrors: error.errors ? Object.keys(error.errors) : []
+      validationErrors: error.errors ? Object.keys(error.errors) : [],
     });
   }
 };
+
 
  
 

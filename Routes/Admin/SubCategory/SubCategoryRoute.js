@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const SubcategoryController = require('../../../Controllers/Admin/SubCategory/SubCategoryController')
 const jwtVerify=require('../../../Middlewares/jwtMiddleware')
-const multer=require('../../../Middlewares/multerMiddleware')
+const multerMiddleware =require('../../../Middlewares/multerMiddleware')
 
 // create new subcategory
-router.post('/create',jwtVerify(['admin']),multer.single('image'),SubcategoryController.createSubCategory)
+router.post('/create',jwtVerify(['admin']),multerMiddleware.upload.single('image'), multerMiddleware.uploadToS3Middleware,SubcategoryController.createSubCategory)
 
 // get subcategory
 router.get('/get',SubcategoryController.getSubCategories)
@@ -14,7 +14,7 @@ router.get('/get',SubcategoryController.getSubCategories)
 router.get('/get/:id',SubcategoryController.getSubCategoryById)
 
 // update subcategory
-router.patch('/update/:id',jwtVerify(['admin']),multer.single('image'),SubcategoryController.updateSubCategory)
+router.patch('/update/:id',jwtVerify(['admin']),multerMiddleware.upload.single('image'), multerMiddleware.uploadToS3Middleware,SubcategoryController.updateSubCategory)
 
 // delete subcategory
 router.delete('/delete/:id',jwtVerify(['admin']),SubcategoryController.deleteSubCategory)

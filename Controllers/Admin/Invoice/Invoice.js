@@ -191,7 +191,6 @@ exports.filterInvoices = async (req, res) => {
       filter[dateField] = {}; // Initialize the date field filter
 
       const parseDate = (dateString) => {
-        // Parse DD-MM-YYYY format
         const [day, month, year] = dateString.split('-');
         return new Date(`${year}-${month}-${day}`);
       };
@@ -218,6 +217,9 @@ exports.filterInvoices = async (req, res) => {
       }
     }
 
+    // Log the filter object for debugging
+    console.log('Filter Object:', filter);
+
     // Fetch invoices based on the filter
     const invoices = await Invoice.find(filter)
       .populate('userId', 'name phone')
@@ -229,9 +231,11 @@ exports.filterInvoices = async (req, res) => {
       invoices,
     });
   } catch (err) {
+    console.error('Error filtering invoices:', err);
     res.status(500).json({ message: 'Failed to filter invoices', error: err.message });
   }
 };
+
 
 
 
