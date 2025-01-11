@@ -1,67 +1,77 @@
 const Product = require('../../../Models/Admin/ProductModel');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+
+
+const s3 = new S3Client({
+    region: process.env.AWS_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID, 
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY, 
+    },
+});
+
 
 // Add a new product
-exports.addProduct = async (req, res) => {
-  try {
-    // Step 1: Extract image URLs from S3 upload
-    const imageUrls = req.files ? req.files.map((file) => file.location) : [];
-
-    // Step 2: Parse and validate colors with robust error handling
-    let colors = [];
+  exports.addProduct = async (req, res) => {
     try {
-      colors = typeof req.body.colors === "string" 
-        ? JSON.parse(req.body.colors) 
-        : (req.body.colors || []);
-    } catch (parseError) {
-      return res.status(400).json({
-        error: "Invalid colors format",
-        details: parseError.message,
+      
+      const imageUrls = req.fileUrls || [];
+      console.log(imageUrls)
+
+      // Step 2: Parse and validate colors with robust error handling
+      let colors = [];
+      try {
+        colors = typeof req.body.colors === "string" 
+          ? JSON.parse(req.body.colors) 
+          : (req.body.colors || []);
+      } catch (parseError) {
+        return res.status(400).json({
+          error: "Invalid colors format",
+          details: parseError.message,
+        });
+      }
+
+      // Validate colors structure
+      const validatedColors = colors.map((color) => ({
+        color: color.color || "",
+        sizes: (color.sizes || []).map((size) => ({
+          size: size.size || "",
+          stock: parseInt(size.stock || 0, 10),
+        })),
+      }));
+
+      // Step 3: Calculate total stock
+      const totalStock = validatedColors.reduce(
+        (total, color) =>
+          total +
+          color.sizes.reduce((colorTotal, size) => colorTotal + size.stock, 0),
+        0
+      );
+
+      const newProduct = new Product({
+        ...req.body,
+        images: imageUrls, 
+        colors: validatedColors,
+        totalStock,
+      });
+
+      const savedProduct = await newProduct.save();
+
+      res.status(201).json({
+        message: "Product added successfully",
+        product: savedProduct,
+      });
+    } catch (error) {
+      console.error("Error adding product:", error);
+
+      // Detailed error response
+      res.status(400).json({
+        error: "Product creation failed",
+        details: error.message,
+        validationErrors: error.errors ? Object.keys(error.errors) : [],
       });
     }
-
-    // Validate colors structure
-    const validatedColors = colors.map((color) => ({
-      color: color.color || "",
-      sizes: (color.sizes || []).map((size) => ({
-        size: size.size || "",
-        stock: parseInt(size.stock || 0, 10),
-      })),
-    }));
-
-    // Step 3: Calculate total stock
-    const totalStock = validatedColors.reduce(
-      (total, color) =>
-        total +
-        color.sizes.reduce((colorTotal, size) => colorTotal + size.stock, 0),
-      0
-    );
-
-    // Step 4: Create the new product with S3 image URLs
-    const newProduct = new Product({
-      ...req.body,
-      images: imageUrls, // Save S3 URLs here
-      colors: validatedColors,
-      totalStock,
-    });
-
-    const savedProduct = await newProduct.save();
-
-    // Step 5: Respond with success message
-    res.status(201).json({
-      message: "Product added successfully",
-      product: savedProduct,
-    });
-  } catch (error) {
-    console.error("Error adding product:", error);
-
-    // Detailed error response
-    res.status(400).json({
-      error: "Product creation failed",
-      details: error.message,
-      validationErrors: error.errors ? Object.keys(error.errors) : [],
-    });
-  }
-};
+  };
 
 
  
@@ -227,40 +237,96 @@ exports.updateProduct = async (req, res) => {
 // Delete a specific image by name
 exports.deleteProductImage = async (req, res) => {
   try {
-    const { id } = req.params; 
-    const { imageName } = req.body; 
+    const { id } = req.params;  // Product ID
+    const { imageName } = req.body;  // Image name to delete
+    
+    // Find the product in the database
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
+    
+    // Filter out the image to be deleted from the images array
     const updatedImages = product.images.filter((img) => {
-      const imgFileName = img.split("\\").pop().split("/").pop(); 
-      return imgFileName !== imageName;
+      
+      return img !== imageName; 
     });
+
     if (updatedImages.length === product.images.length) {
       return res.status(400).json({ message: "Image not found in product" });
     }
+
+    // Update the product's images array
     product.images = updatedImages;
+
+    // Prepare S3 delete params
+    const imageUrl = imageName;  // The image URL passed in the request body
+    const fileName = imageUrl.split('/').pop();  // Extract file name from the URL
+    const imageKey = `Products/${fileName}`;  
+    
+    // Define the delete command for S3
+    const params = {
+      Bucket: process.env.BUCKET_NAME,  // Your S3 bucket name
+      Key: imageKey,  // Key of the image to delete (path in the bucket)
+    };
+
+    // Execute the delete command to remove the image from S3
+    const deleteCommand = new DeleteObjectCommand(params);
+    const response = await s3.send(deleteCommand);
+    console.log("Delete Response:", response);  // Optional: Log the S3 delete response
+    
+    // Save the updated product to the database
     await product.save();
+    
+    // Send response back to the client
     res.status(200).json({ message: "Image deleted successfully", images: product.images });
   } catch (error) {
+    console.error("Error deleting image:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
 
-// Delete a product by ID
+
+
+
 exports.deleteProduct = async (req, res) => {
   try {
-    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
-    if (!deletedProduct) {
+    const { id } = req.params;  // Extract product ID from the request params
+    
+    // Find the product and retrieve all the image URLs
+    const product = await Product.findById(id);
+    if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
-    res.status(200).json({ message: "Product deleted successfully" });
+
+    // Step 1: Delete all product images from S3
+    for (const imageUrl of product.images) {
+      const fileName = imageUrl.split('/').pop();  // Extract file name from image URL
+      const imageKey = `Products/${fileName}`;  // Assuming images are stored under 'Products' in your S3 bucket
+
+      // Step 2: Prepare S3 delete params
+      const params = {
+        Bucket: process.env.BUCKET_NAME,  // Your S3 bucket name
+        Key: imageKey,  // Key of the image to delete (path in the bucket)
+      };
+
+      // Step 3: Delete the image from S3
+      const deleteCommand = new DeleteObjectCommand(params);
+      await s3.send(deleteCommand);  // Send the delete command to S3
+      console.log(`Deleted image: ${imageKey}`);
+    }
+
+    // Step 4: Delete the product from the database
+    await Product.findByIdAndDelete(id);
+
+    res.status(200).json({ message: "Product and associated images deleted successfully" });
   } catch (error) {
+    console.error("Error deleting product:", error);
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // filter products
 exports.filterProductsByCategoryId = async (req, res) => {

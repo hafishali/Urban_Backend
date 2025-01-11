@@ -17,8 +17,8 @@ const upload = multer({
     }
   },
   limits: {
-    fileSize: 3 * 1024 * 1024,  // Max file size (3 MB)
-    files: 5  // Max number of files
+    fileSize: 3 * 1024 * 1024,  
+    files: 5  
   }
 });
 
@@ -26,6 +26,7 @@ const upload = multer({
 const uploadFileToS3 = async (file, folder = 'Products') => {
   const filename = `image-${Date.now()}-${file.originalname}`;
   const filePath = `${folder}/${filename}`;
+  console.log(filename)
 
   const params = {
     Bucket: process.env.BUCKET_NAME,  // Your S3 bucket name
@@ -42,16 +43,25 @@ const uploadFileToS3 = async (file, folder = 'Products') => {
   return `https://${process.env.BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${filePath}`;  // Return the public URL of the uploaded file
 };
 
-// Middleware to handle S3 upload
+// Middleware to handle S3 upload for both single and multiple files
 const uploadToS3Middleware = async (req, res, next) => {
   try {
+    // Handle single file upload
     if (req.file) {
-      req.fileUrl = await uploadFileToS3(req.file, req.body.folder);  // Upload single file and save the URL
+      req.fileUrl = await uploadFileToS3(req.file, req.body.folder);
     }
-    next();  // Proceed to the next middleware
+    
+    // Handle multiple file upload
+    if (req.files) {
+      req.fileUrls = await Promise.all(
+        req.files.map(file => uploadFileToS3(file, req.body.folder))
+      );
+    }
+    
+    next();
   } catch (error) {
     console.error("Error uploading to S3:", error);
-    res.status(500).json({ error: "Failed to upload file to S3" });
+    res.status(500).json({ error: "Failed to upload file(s) to S3" });
   }
 };
 
