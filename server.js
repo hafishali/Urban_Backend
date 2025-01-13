@@ -51,7 +51,7 @@ require('./config/passportConfigGoogle')
 app.use(passport.initialize())
 
 // admin Routes
-app.use('/admin/auth',adminAuth)
+app.use('/api/admin/auth',adminAuth)
 app.use('/admin/category',categoryRoutes)
 app.use('/admin/Subcategory',SubcategoryRoutes)
 app.use('/admin/slider',sliderRoutes)
