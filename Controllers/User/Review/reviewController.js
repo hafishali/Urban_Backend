@@ -5,7 +5,7 @@ const Product = require("../../../Models/Admin/ProductModel");
 // Add Review
 exports.addReview = async (req, res) => {
   const { userId, productId, rating, message } = req.body;
-  const image = req.file ? req.file.path : null; 
+  const image = req.fileUrl
 
   try {
     const order = await Order.findOne({

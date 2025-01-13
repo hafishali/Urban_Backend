@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const productController = require('../../../Controllers/Admin/Product/productController')
 const jwtVerify = require('../../../Middlewares/jwtMiddleware')
-const multer=require('../../../Middlewares/multerMiddleware')
+const multerMiddleware =require('../../../Middlewares/multerMiddleware')
 
-const upload = multer.array("images",5)
+// const upload = multer.array("images",5)
 
 // Add a new product
-router.post('/create-product',jwtVerify(['admin']),upload, productController.addProduct );
+router.post('/create-product',jwtVerify(['admin']),multerMiddleware.upload.array("images",5), multerMiddleware.uploadToS3Middleware, productController.addProduct );
 
 // Get all products
 router.get('/view-products',jwtVerify(['admin']), productController.getAllProducts);
@@ -16,7 +16,7 @@ router.get('/view-products',jwtVerify(['admin']), productController.getAllProduc
 router.get('/product/:id', productController.getProductById);
 
 // Update a product with image handling
-router.patch('/update-product/:id', jwtVerify(['admin']), upload, productController.updateProduct);
+router.patch('/update-product/:id', jwtVerify(['admin']),multerMiddleware.upload.array("images",5), multerMiddleware.uploadToS3Middleware, productController.updateProduct);
 
 // Delete an image 
 router.post('/delete-product-image/:id', jwtVerify(['admin']), productController.deleteProductImage);

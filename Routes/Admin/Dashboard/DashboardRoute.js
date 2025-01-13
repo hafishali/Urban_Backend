@@ -4,7 +4,6 @@ const DashboardController = require('../../../Controllers/Admin/Dashboard/Dashbo
 const jwtVerify = require('../../../Middlewares/jwtMiddleware')
 const multer=require('../../../Middlewares/multerMiddleware')
 
-const upload = multer.array("images",5)
 
 
 // Get all products

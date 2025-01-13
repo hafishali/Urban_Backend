@@ -1,5 +1,16 @@
 const SubCategory = require('../../../Models/Admin/SubcategoyModel')
 const fs = require('fs');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+
+
+const s3 = new S3Client({
+    region: process.env.AWS_REGION, // Specify your region
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID, // Use your AWS access key
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY, // Use your AWS secret key
+    },
+});
+
 
 // create subcategory
 exports.createSubCategory=async(req,res)=>{
@@ -8,7 +19,7 @@ exports.createSubCategory=async(req,res)=>{
             return res.status(400).json({message:"SubCategory Image is required"})
         }
     try {
-       const newSubCategory=new SubCategory({title,category,isActive: isActive === undefined ? true : isActive, image: req.file.filename}) 
+       const newSubCategory=new SubCategory({title,category,isActive: isActive === undefined ? true : isActive, image: req.fileUrl}) 
         await newSubCategory.save()
         res.status(201).json({ message: 'SubCategory created successfully' , SubCategory: newSubCategory});
     } catch (error) {
@@ -72,15 +83,26 @@ exports.updateSubCategory = async (req, res) => {
     const { id } = req.params;
     const updates = req.body; 
     try {
-        if (req.file) {
+        if (req.fileUrl) {
             const subcategory = await SubCategory.findById(id);
-            if (subcategory && subcategory.image) {
-                const oldImagePath = `./uploads/category/${subcategory.image}`;
-                if (fs.existsSync(oldImagePath)) {
-                    fs.unlinkSync(oldImagePath);
-                }
-            }
-            updates.image = req.file.filename;
+            const oldImageUrl = subcategory.image;
+            const oldFileName = oldImageUrl ? oldImageUrl.split('/').pop() : null;
+            updates.image = req.fileUrl;
+             if (oldFileName) {
+                    const oldImageKey = `SubCategories/${oldFileName}`;
+                    const deleteParams = {
+                      Bucket: process.env.BUCKET_NAME,
+                      Key: oldImageKey,
+                    };
+            
+                    try {
+                      const deleteCommand = new DeleteObjectCommand(deleteParams);
+                      await s3.send(deleteCommand);
+                      console.log(`Old image deleted from S3: ${oldImageKey}`);
+                    } catch (err) {
+                      console.error(`Error deleting old image from S3: ${err.message}`);
+                    }
+                  }
         }
         if (updates.isActive !== undefined) {
             updates.isActive = updates.isActive === 'true' || updates.isActive === true; // Convert to boolean
@@ -111,10 +133,19 @@ exports.deleteSubCategory = async (req,res) => {
         }
 
         // delete the image file
-        const imagePath = `./uploads/category/${subcategory.image}`
-        if (fs.existsSync(imagePath)) {
-            fs.unlinkSync(imagePath);
-        }
+        const imageUrl = subcategory.image; // Full URL from the database
+                const fileName = imageUrl.split('/').pop(); // Extract the file name
+                const imageKey = `SubCategories/${fileName}`;
+                const params = {
+                    Bucket: process.env.BUCKET_NAME,
+                    Key: imageKey,
+                };
+        
+                console.log("Params:", params); // Debugging: Log params to verify
+        
+                // Send the delete command to S3
+                const deleteCommand = new DeleteObjectCommand(params);
+                const response = await s3.send(deleteCommand);
 
         // delete the category from the database
         await SubCategory.findByIdAndDelete(id);
