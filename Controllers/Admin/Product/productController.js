@@ -172,7 +172,7 @@ exports.updateProduct = async (req, res) => {
     }
 
     const existingImages = product.images || [];
-    const newImages = req.files ? req.files.map((file) => file.filename) : [];
+    const newImages = req.fileUrls || [];
     if (existingImages.length + newImages.length > 5) {
       return res.status(400).json({ message: "Cannot have more than 5 images for a product" });
     }
