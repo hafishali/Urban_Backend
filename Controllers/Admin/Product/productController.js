@@ -237,54 +237,59 @@ exports.updateProduct = async (req, res) => {
 // Delete a specific image by name
 exports.deleteProductImage = async (req, res) => {
   try {
-    const { id } = req.params;  // Product ID
-    const { imageName } = req.body;  // Image name to delete
-    
+    const { id } = req.params; // Product ID
+    const { imageName } = req.body; // Image name to delete
+
     // Find the product in the database
     const product = await Product.findById(id);
     if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+      return res.status(404).json({ message: 'Product not found' });
     }
-    
+
+    // Prevent deletion if only one image remains and at least one is required
+    if (product.images.length === 1 && product.images.includes(imageName)) {
+      return res
+        .status(400)
+        .json({ message: 'At least one product image is required' });
+    }
+
     // Filter out the image to be deleted from the images array
-    const updatedImages = product.images.filter((img) => {
-      
-      return img !== imageName; 
-    });
+    const updatedImages = product.images.filter((img) => img !== imageName);
 
     if (updatedImages.length === product.images.length) {
-      return res.status(400).json({ message: "Image not found in product" });
+      return res.status(400).json({ message: 'Image not found in product' });
     }
 
     // Update the product's images array
     product.images = updatedImages;
 
     // Prepare S3 delete params
-    const imageUrl = imageName;  // The image URL passed in the request body
-    const fileName = imageUrl.split('/').pop();  // Extract file name from the URL
-    const imageKey = `Products/${fileName}`;  
-    
+    const imageUrl = imageName; // The image URL passed in the request body
+    const fileName = imageUrl.split('/').pop(); // Extract file name from the URL
+    const imageKey = `Products/${fileName}`;
+
     // Define the delete command for S3
     const params = {
-      Bucket: process.env.BUCKET_NAME,  // Your S3 bucket name
-      Key: imageKey,  // Key of the image to delete (path in the bucket)
+      Bucket: process.env.BUCKET_NAME, // Your S3 bucket name
+      Key: imageKey, // Key of the image to delete (path in the bucket)
     };
 
     // Execute the delete command to remove the image from S3
     const deleteCommand = new DeleteObjectCommand(params);
     const response = await s3.send(deleteCommand);
-    console.log("Delete Response:", response);  // Optional: Log the S3 delete response
-    
+    console.log('Delete Response:', response); // Optional: Log the S3 delete response
+
     // Save the updated product to the database
     await product.save();
-    
+
     // Send response back to the client
-    res.status(200).json({ message: "Image deleted successfully", images: product.images });
+    res.status(200).json({ message: 'Image deleted successfully', images: product.images });
   } catch (error) {
-    console.error("Error deleting image:", error);
+    console.error('Error deleting image:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 

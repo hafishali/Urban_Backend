@@ -14,7 +14,7 @@ exports.getSubCategories = async (req, res) => {
                 description: subcategories.category?.description,
                 imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategories.category?.image}`
             },
-            SubImageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategories.image}`
+            SubImageUrl: subcategories.image
         }))
         res.status(200).json(SubcategoriesWithImageUrl);
         // res.status(200).json(subcategory);
@@ -41,7 +41,7 @@ exports.getSubCategoryById = async (req, res)=> {
                 description: subcategory.category?.description,
                 imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategory.category?.image}`
             },
-            imageUrl: `${req.protocol}://${req.get('host')}/uploads/category/${subcategory.image}`
+            imageUrl: subcategory.image
         };
         res.status(200).json(SubcategoryWithImageUrl);
     } catch (err) {
