@@ -16,7 +16,7 @@ const s3 = new S3Client({
 exports.createSlider = async (req, res) => {
     const { title, link, category, label } = req.body;
 
-    if (!req.file) {
+    if (!req.fileUrl) {
         return res.status(400).json({ message: "Please upload a image" });
     }
 
