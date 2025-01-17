@@ -191,15 +191,6 @@ exports.placeOrder = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
-
-
-
 // Get orders by user
 exports.getUserOrders = async (req, res) => {
   try {

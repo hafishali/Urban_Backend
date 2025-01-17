@@ -79,3 +79,37 @@ exports.searchProductsByName = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// similar products
+
+exports.getSimilarProducts = async (req, res) => {
+  try {
+    const { productId } = req.params;   
+    const referenceProduct = await Product.findById(productId);
+    if (!referenceProduct) {
+      return res.status(404).json({ message: "Reference product not found" });
+    }
+    const query = {
+      category: referenceProduct.category, 
+      subcategory: referenceProduct.subcategory, 
+      _id: { $ne: referenceProduct._id }, 
+      $or: [
+        { 'colors.color': { $in: referenceProduct.colors.map(colorObj => colorObj.color) } },
+        { 'features.material': referenceProduct.features.material },
+        { manufacturerBrand: referenceProduct.manufacturerBrand } 
+      ]
+    };
+    const similarProducts = await Product.find(query)
+      .populate('category')
+      .populate('subcategory');
+
+    if (similarProducts.length === 0) {
+      return res.status(404).json({ message: "No similar products found" });
+    }
+
+    res.status(200).json(similarProducts);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
