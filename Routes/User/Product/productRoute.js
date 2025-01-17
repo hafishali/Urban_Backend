@@ -16,5 +16,8 @@ router.get('/products/category/:categoryId/subcategory/:subcategoryId', productC
 // Search products by name
 router.get('/products/search', productController.searchProductsByName);
 
+// get similar products
+router.get('/similar/:productId',productController.getSimilarProducts)
+
 
 module.exports = router;
