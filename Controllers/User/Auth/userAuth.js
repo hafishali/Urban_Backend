@@ -272,7 +272,7 @@ exports.googleLoginCallback = (req, res, next) => {
             //         role: user.role,
             //     },
             // });
-            res.redirect(`https://urbaan.in/?accessToken=${accessToken}&refreshToken=${refreshToken}&role=${user.role}&userId=${user._id}&name=${encodeURIComponent(user.name)}`);
+            res.redirect(`https://urbaan.in/?Token=${token}&role=${user.role}&userId=${user._id}&name=${encodeURIComponent(user.name)}`);
 
         } catch (error) {
             // res.status(500).json({ message: 'Server error', error: error.message });
