@@ -267,7 +267,7 @@ exports.googleLoginCallback = (req, res, next) => {
                 `https://urbaan.in/?accessToken=${accessToken}&refreshToken=${refreshToken}&role=${user.role}&userId=${user._id}&name=${encodeURIComponent(user.name)}`
             );
         } catch (error) {
-            return res.redirect('http://your-frontend-url/login?error=Server%20Error');
+            return res.redirect('https://urbaan.in/login-user/login?error=Server%20Error');
         }
     })(req, res, next);
 };
