@@ -276,6 +276,7 @@ exports.googleLoginCallback = (req, res, next) => {
 
         } catch (error) {
             // res.status(500).json({ message: 'Server error', error: error.message });
+            console.log(error)
             return res.redirect('https://urbaan.in/login-user/login?error=Server%20Error');
 
         }
