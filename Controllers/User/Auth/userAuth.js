@@ -241,40 +241,38 @@ exports.resetPassword = async (req, res) => {
 
 // Google Login Callback
 exports.googleLoginCallback = (req, res, next) => {
-    passport.authenticate('google', { session: false }, async (err, user, info) => {
+    passport.authenticate('google', { session: false }, async (err, user) => {
         if (err) {
-            return res.status(500).json({ message: 'Authentication failed', error: err.message });
+            return res.redirect('https://urbaan.in/login-user?error=Authentication%20Failed');
         }
         try {
             // Check if a user with this email exists
             const existingUser = await User.findOne({ email: user.email });
             if (existingUser) {
-                user = existingUser; // Link to existing user
+                user = existingUser;
             } else {
-                // Create a new user if not found
                 user = await User.create({
                     name: user.name,
                     email: user.email,
                     googleId: user.id,
                 });
             }
-            // Generate JWT token
-            const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-            res.status(200).json({
-                message: 'Google login successful',
-                token,
-                user: {
-                    name: user.name,
-                    userId:user._id,
-                    email: user.email,
-                    role: user.role,
-                },
-            });
+
+            // Generate tokens
+            const accessToken = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '15m' });
+            const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+
+            // Redirect to frontend with tokens and user details
+            res.redirect(
+                `https://urbaan.in/?accessToken=${accessToken}&refreshToken=${refreshToken}&role=${user.role}&userId=${user._id}&name=${encodeURIComponent(user.name)}`
+            );
         } catch (error) {
-            res.status(500).json({ message: 'Server error', error: error.message });
+            return res.redirect('http://your-frontend-url/login?error=Server%20Error');
         }
     })(req, res, next);
 };
+
+
 // Facebook Login Callback
 exports.facebookLoginCallback = (req, res, next) => {
     passport.authenticate('facebook', { session: false }, (err, user) => {
