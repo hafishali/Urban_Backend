@@ -125,7 +125,7 @@ exports.placeOrder = async (req, res) => {
 
     let finalPayableAmount = checkout.discountedPrice + deliveryCharge;
 
-    if (paymentMethod === "razorpay") {
+    if (paymentMethod === "UPI") {
       // Razorpay Order Creation
       const razorpayOrder = await razorpay.orders.create({
         amount: finalPayableAmount * 100,
@@ -142,7 +142,7 @@ exports.placeOrder = async (req, res) => {
         discountedAmount: checkout.discountedPrice,
         deliveryCharge,
         finalPayableAmount,
-        paymentMethod: "razorpay",
+        paymentMethod: "UPI",
         paymentStatus: "pending",
         razorpayOrderId: razorpayOrder.id,
       });
@@ -158,7 +158,7 @@ exports.placeOrder = async (req, res) => {
         amount: finalPayableAmount * 100,
         currency: "INR",
       });
-    } else if (paymentMethod === "cod") {
+    } else if (paymentMethod === "Cash on Delivery") {
       // Save COD Order
       const order = new Order({
         userId,
@@ -168,7 +168,7 @@ exports.placeOrder = async (req, res) => {
         discountedAmount: checkout.discountedPrice,
         deliveryCharge,
         finalPayableAmount,
-        paymentMethod: "cod",
+        paymentMethod: "Cash on Delivery",
         paymentStatus: "pending",
       });
 
