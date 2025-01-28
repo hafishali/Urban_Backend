@@ -38,7 +38,7 @@ const adminOrderRoutes = require('./Routes/Admin/Order/orderRoute')
 const deliveryFeeRoutes = require('./Routes/Admin/DeliveryFee/deliveryFeeRoute')
 const MainSearchRoutes = require('./Routes/User/Main Search/SearchRoutes');
 const walk_inCoupon=require('./Routes/User/Walk-inCoupon/Walk-inRoute')
-
+const webhookRoutes = require("./Routes/User/razorpay_webhook/webhookRoute");
 
 const path = require('path')
 
@@ -82,7 +82,8 @@ app.use('/api/user/order',orderRoutes)
 app.use('/api/user/review',reviewRoutes)
 app.use('/api/user/search',MainSearchRoutes)
 app.use('/api/walkin/coupon',walk_inCoupon)
-
+app.use("/api/webhook/razorpay", express.raw({ type: "application/json" }));
+app.use('/api/webhook/razorpay', webhookRoutes);
 
 
 

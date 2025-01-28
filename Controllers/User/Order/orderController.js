@@ -6,6 +6,7 @@ const Cart = require('../../../Models/User/CartModel')
 const Checkout=require('../../../Models/User/CheckoutModel')
 const Coupon=require('../../../Models/Admin/CouponModel');
 const mongoose=require('mongoose')
+const razorpay = require('razorpay');
 
 // Place an order
 // exports.placeOrder = async (req, res) => {
@@ -79,56 +80,37 @@ exports.placeOrder = async (req, res) => {
 
   try {
     const checkout = await Checkout.findById(checkoutId)
-      .populate('cartItems.productId')
+      .populate("cartItems.productId")
       .populate({
-        path: 'coupen',
-        model: 'Coupon',
-        select: 'discountValue discountType code title',
+        path: "coupen",
+        model: "Coupon",
+        select: "discountValue discountType code title",
       });
 
-    if (!checkout) {
-      throw new Error("Checkout not found");
-    }
-
-    if (!checkout.cartItems || checkout.cartItems.length === 0) {
-      throw new Error("No products found in the checkout");
-    }
-
-    if (!checkout.addressId || checkout.addressId._id.toString() !== addressId) {
-      throw new Error("Invalid address ID or address mismatch in the checkout");
-    }
+    if (!checkout) throw new Error("Checkout not found");
+    if (!checkout.cartItems || checkout.cartItems.length === 0) throw new Error("No products found in the checkout");
 
     const validatedProducts = [];
     let totalPrice = 0;
 
     for (const cartItem of checkout.cartItems) {
       const productData = cartItem.productId;
-      if (!productData) {
-        throw new Error(`Product with ID ${cartItem.productId} not found`);
-      }
+      if (!productData) throw new Error(`Product with ID ${cartItem.productId} not found`);
 
       const selectedColor = productData.colors.find((color) => color.color === cartItem.color);
-      if (!selectedColor) {
-        throw new Error(`Invalid color '${cartItem.color}' for product '${productData.title}' (ID: ${productData._id})`);
-      }
+      if (!selectedColor) throw new Error(`Invalid color '${cartItem.color}' for product '${productData.title}'`);
 
       const selectedSize = selectedColor.sizes.find((size) => size.size === cartItem.size);
-      if (!selectedSize) {
-        throw new Error(`Invalid size '${cartItem.size}' for product '${productData.title}' (ID: ${productData._id})`);
-      }
+      if (!selectedSize) throw new Error(`Invalid size '${cartItem.size}' for product '${productData.title}'`);
 
-      if (selectedSize.stock < cartItem.quantity) {
-        throw new Error(`Insufficient stock for product '${productData.title}' (ID: ${productData._id}), color '${cartItem.color}', size '${cartItem.size}'`);
-      }
+      if (selectedSize.stock < cartItem.quantity)
+        throw new Error(`Insufficient stock for product '${productData.title}'`);
 
       selectedSize.stock -= cartItem.quantity;
       productData.totalStock -= cartItem.quantity;
       productData.orderCount += cartItem.quantity;
 
       productData.markModified("colors");
-      productData.markModified("totalStock");
-      productData.markModified("orderCount");
-
       validatedProducts.push({
         productId: productData._id,
         quantity: cartItem.quantity,
@@ -141,48 +123,64 @@ exports.placeOrder = async (req, res) => {
       await productData.save({ session });
     }
 
-    let discountedAmount = 0;
-    let finalPayableAmount = checkout.totalPrice;
+    let finalPayableAmount = checkout.discountedPrice + deliveryCharge;
 
-    if (checkout.coupen && checkout.coupen._id) {
-      const existingCoupon = await Coupon.findById(checkout.coupen._id);
-      if (existingCoupon && existingCoupon.status === 'active') {
-        discountedAmount = checkout.totalPrice - checkout.discountedPrice;
-        finalPayableAmount = checkout.discountedPrice;
-      }
+    if (paymentMethod === "razorpay") {
+      // Razorpay Order Creation
+      const razorpayOrder = await razorpay.orders.create({
+        amount: finalPayableAmount * 100,
+        currency: "INR",
+        receipt: `order_rcptid_${Date.now()}`,
+      });
+
+      // Save Razorpay Order
+      const order = new Order({
+        userId,
+        addressId,
+        products: validatedProducts,
+        totalPrice,
+        discountedAmount: checkout.discountedPrice,
+        deliveryCharge,
+        finalPayableAmount,
+        paymentMethod: "razorpay",
+        paymentStatus: "pending",
+        razorpayOrderId: razorpayOrder.id,
+      });
+
+      await order.save({ session });
+      await session.commitTransaction();
+      session.endSession();
+
+      // Send Razorpay Order Details to Frontend
+      return res.status(201).json({
+        message: "Order created. Proceed to payment.",
+        razorpayOrderId: razorpayOrder.id,
+        amount: finalPayableAmount * 100,
+        currency: "INR",
+      });
+    } else if (paymentMethod === "cod") {
+      // Save COD Order
+      const order = new Order({
+        userId,
+        addressId,
+        products: validatedProducts,
+        totalPrice,
+        discountedAmount: checkout.discountedPrice,
+        deliveryCharge,
+        finalPayableAmount,
+        paymentMethod: "cod",
+        paymentStatus: "pending",
+      });
+
+      await order.save({ session });
+      await session.commitTransaction();
+      session.endSession();
+
+      // Respond with COD Success
+      return res.status(201).json({ message: "Order created successfully with Cash on Delivery." });
     }
-    finalPayableAmount += deliveryCharge;
 
-    discountedAmount = parseFloat(discountedAmount.toFixed(2));
-    finalPayableAmount = parseFloat(finalPayableAmount.toFixed(2));
-
-    if (isNaN(finalPayableAmount)) {
-      throw new Error("Invalid final payable amount");
-    }
-
-    const orderId = await generateNumericOrderId();
-
-    const order = new Order({
-      orderId,
-      userId,
-      addressId,
-      products: validatedProducts,
-      totalPrice,
-      discountedAmount,
-      deliveryCharge,
-      finalPayableAmount,
-      paymentMethod,
-      coupon: checkout.coupen,
-    });
-
-    await order.save({ session });
-    await Cart.deleteOne({ userId }).session(session);
-    await Checkout.deleteOne({ _id: checkoutId }).session(session);
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(201).json({ message: "Order placed successfully", order });
+    throw new Error("Invalid payment method");
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
@@ -190,6 +188,7 @@ exports.placeOrder = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 // Get orders by user
 exports.getUserOrders = async (req, res) => {
