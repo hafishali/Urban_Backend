@@ -237,8 +237,8 @@ exports.updateProduct = async (req, res) => {
 // Delete a specific image by name
 exports.deleteProductImage = async (req, res) => {
   try {
-    const { id } = req.params; // Product ID
-    const { imageName } = req.body; // Image name to delete
+    const { id } = req.params; 
+    const { imageName } = req.body; 
 
     // Find the product in the database
     const product = await Product.findById(id);
