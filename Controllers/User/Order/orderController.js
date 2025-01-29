@@ -6,7 +6,7 @@ const Cart = require('../../../Models/User/CartModel')
 const Checkout=require('../../../Models/User/CheckoutModel')
 const Coupon=require('../../../Models/Admin/CouponModel');
 const mongoose=require('mongoose')
-const razorpay = require('razorpay');
+const razorpay = require('../../../config/RazorpayInstance');
 
 // Place an order
 // exports.placeOrder = async (req, res) => {
@@ -132,7 +132,7 @@ exports.placeOrder = async (req, res) => {
         currency: "INR",
         receipt: `order_rcptid_${Date.now()}`,
       });
-
+      const orderId = await generateNumericOrderId();
       // Save Razorpay Order
       const order = new Order({
         userId,

@@ -3,7 +3,7 @@ const Invoice=require('../../Models/Admin/InvoiceModel')
 const crypto = require('crypto'); 
 
 const orderSchema = new mongoose.Schema({
-  orderId: { type: Number, required: true, unique: true }, // Unique numeric order ID
+  orderId: { type: Number,required: true  ,unique: true }, // Unique numeric order ID
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   razorpayOrderId:{type:String},
   addressId: { type: mongoose.Schema.Types.ObjectId, ref: 'Address', required: true },
@@ -53,8 +53,26 @@ const orderSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
+orderSchema.statics.generateOrderId = async function () {
+  const lastOrder = await this.findOne().sort({ orderId: -1 }).limit(1);
+  const lastOrderId = lastOrder ? lastOrder.orderId : 0;
+  return lastOrderId + 1;
+};
 
+// Generate orderId before validation
+orderSchema.pre('validate', async function (next) {
+  if (!this.orderId) {
+    try {
+      const orderId = await this.constructor.generateOrderId();
+      this.orderId = orderId;
+    } catch (error) {
+      return next(error);
+    }
+  }
+  next();
+});
 
+// Update updatedAt on save
 orderSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
