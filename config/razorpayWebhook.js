@@ -9,7 +9,7 @@ exports.handleRazorpayWebhook = async (req, res) => {
     .createHmac("sha256", secret)
     .update(JSON.stringify(req.body))
     .digest("hex");
-
+    console.log(generatedSignature);
   if (receivedSignature !== generatedSignature) {
     return res.status(400).json({ message: "Invalid signature" });
   }
