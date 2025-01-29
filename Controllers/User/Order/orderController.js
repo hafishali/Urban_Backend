@@ -148,6 +148,8 @@ exports.placeOrder = async (req, res) => {
       });
 
       await order.save({ session });
+      await Cart.deleteOne({ userId }).session(session);
+      await Checkout.deleteOne({ _id: checkoutId }).session(session);
       await session.commitTransaction();
       session.endSession();
 
