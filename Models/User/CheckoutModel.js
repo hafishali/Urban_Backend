@@ -65,6 +65,13 @@ const checkoutSchema = new mongoose.Schema({
     type: Date, 
     default: Date.now 
   },
+  expiresAt: { 
+    type: Date, 
+    default: function () {
+      return new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // Set expiry 3 days later
+    },
+    index: { expires: 0 } // TTL index
+  }
 });
 
 const Checkout = mongoose.model('Checkout', checkoutSchema);
