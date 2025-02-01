@@ -99,217 +99,99 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
 
 // filter order
 exports.filterOrders = async (req, res) => {
-    try {
-      const { startDate, endDate, categoryIds, status } = req.query;
-  
-      // Build match stage for aggregation
-      const matchStage = {};
-  
-      if (startDate || endDate) {
-        matchStage.createdAt = {};
-        if (startDate) matchStage.createdAt.$gte = new Date(startDate);
-        if (endDate) matchStage.createdAt.$lte = new Date(endDate);
+  try {
+    const { startDate, endDate, categoryIds, status } = req.query;
+
+    // Function to convert "DD-MM-YYYY" to Date object
+    const parseDate = (dateStr, endOfDay = false) => {
+      if (!dateStr) return null;
+      const [day, month, year] = dateStr.split('-').map(Number);
+      if (!day || !month || !year) return null;
+
+      const date = new Date(year, month - 1, day);
+      if (endOfDay) {
+        date.setHours(23, 59, 59, 999);
       }
-  
-      if (status) {
-        matchStage.status = status;
+      return date;
+    };
+
+    // Debug incoming dates
+    console.log('\n=== Date Filter Debug ===');
+    console.log('Received startDate:', startDate);
+    console.log('Received endDate:', endDate);
+
+    const matchStage = {};
+
+    if (startDate || endDate) {
+      matchStage.createdAt = {};
+
+      if (startDate) {
+        matchStage.createdAt.$gte = parseDate(startDate);
+        console.log('Parsed startDate:', matchStage.createdAt.$gte);
       }
-  
-      // Use aggregation pipeline with proper ObjectId handling
-      const orders = await Order.aggregate([
-        {
-          $match: matchStage
-        },
-        // Unwind products array to properly handle the lookups
-        {
-          $unwind: {
-            path: "$products",
-            preserveNullAndEmptyArrays: true
-          }
-        },
-        // Lookup and join with products
-        {
-          $lookup: {
-            from: "products",
-            let: { productId: "$products.productId" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$_id", "$$productId"] }
-                }
-              }
-            ],
-            as: "products.productDetails"
-          }
-        },
-        // Unwind product details
-        {
-          $unwind: {
-            path: "$products.productDetails",
-            preserveNullAndEmptyArrays: true
-          }
-        },
-        // Lookup categories for products
-        {
-          $lookup: {
-            from: "categories",
-            let: { categoryId: "$products.productDetails.category" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$_id", "$$categoryId"] }
-                }
-              }
-            ],
-            as: "products.productDetails.category"
-          }
-        },
-        // Unwind category
-        {
-          $unwind: {
-            path: "$products.productDetails.category",
-            preserveNullAndEmptyArrays: true
-          }
-        },
-        // Group back to original structure
-        {
-          $group: {
-            _id: "$_id",
-            userId: { $first: "$userId" },
-            addressId: { $first: "$addressId" },
-            products: {
-              $push: {
-                productId: "$products.productDetails",
-                quantity: "$products.quantity",
-                price: "$products.price"
-              }
-            },
-            totalAmount: { $first: "$totalAmount" },
-            status: { $first: "$status" },
-            createdAt: { $first: "$createdAt" },
-            updatedAt: { $first: "$updatedAt" },
-            coupen: { $first: "$coupen" }
-          }
-        },
-        // Lookup user details
-        {
-          $lookup: {
-            from: "users",
-            let: { userId: "$userId" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$_id", "$$userId"] }
-                }
-              },
-              {
-                $project: {
-                  name: 1,
-                  email: 1
-                }
-              }
-            ],
-            as: "userDetails"
-          }
-        },
-        // Lookup address details
-        {
-          $lookup: {
-            from: "addresses",
-            let: { addressId: "$addressId" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$_id", "$$addressId"] }
-                }
-              },
-              {
-                $project: {
-                  city: 1,
-                  street: 1
-                }
-              }
-            ],
-            as: "addressDetails"
-          }
-        },
-        // Lookup coupon details
-        {
-          $lookup: {
-            from: "coupens",
-            let: { coupenId: "$coupen" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$_id", "$$coupenId"] }
-                }
-              },
-              {
-                $project: {
-                  code: 1,
-                  discountedAmount: 1
-                }
-              }
-            ],
-            as: "coupenDetails"
-          }
-        },
-        // Final field structure
-        {
-          $addFields: {
-            userId: { $arrayElemAt: ["$userDetails", 0] },
-            addressId: { $arrayElemAt: ["$addressDetails", 0] },
-            coupen: { $arrayElemAt: ["$coupenDetails", 0] }
-          }
-        },
-        // Cleanup temporary fields
-        {
-          $project: {
-            userDetails: 0,
-            addressDetails: 0,
-            coupenDetails: 0
-          }
-        }
-      ]);
-  
-      let filteredOrders = orders;
-      let unmatchedCategories = [];
-  
-      // Handle category filtering if specified
-      if (categoryIds) {
-        const inputCategories = categoryIds.split(',').map(id => id.trim());
-        
-        const allOrderCategories = new Set();
-        orders.forEach(order => {
-          order.products.forEach(product => {
-            if (product.productId?.category?._id) {
-              allOrderCategories.add(product.productId.category._id.toString());
-            }
-          });
-        });
-  
-        unmatchedCategories = inputCategories.filter(
-          categoryId => !allOrderCategories.has(categoryId)
-        );
-  
-        filteredOrders = orders.filter(order =>
-          order.products.some(product =>
-            product.productId?.category?._id &&
-            inputCategories.includes(product.productId.category._id.toString())
-          )
-        );
+
+      if (endDate) {
+        matchStage.createdAt.$lte = parseDate(endDate, true);
+        console.log('Parsed endDate:', matchStage.createdAt.$lte);
       }
-  
-      res.status(200).json({
-        filteredOrders,
-        unmatchedCategories,
-        totalOrders: filteredOrders.length
-      });
-  
-    } catch (error) {
-      console.error('Error filtering orders:', error);
-      res.status(500).json({ message: 'Server error', error: error.message });
+
+      console.log('Final date match criteria:', matchStage.createdAt);
     }
+
+    if (status) {
+      matchStage.status = status;
+    }
+
+    console.log('\nFinal match stage:', matchStage);
+
+    const orders = await Order.aggregate([
+      {
+        $match: matchStage
+      },
+      {
+        $unwind: {
+          path: "$products",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+    ]);
+
+    console.log('\n=== Results Debug ===');
+    console.log('Number of orders found:', orders.length);
+
+    // If no orders found, get a quick sample of dates
+    if (orders.length === 0) {
+      const sampleDates = await Order.find({}, { createdAt: 1 })
+        .sort({ createdAt: -1 })
+        .limit(3);
+      console.log('Sample of recent order dates:', sampleDates.map(order => order.createdAt));
+    }
+
+    let filteredOrders = orders;
+    let unmatchedCategories = [];
+
+    res.status(200).json({
+      filteredOrders,
+      unmatchedCategories,
+      totalOrders: filteredOrders.length,
+      debug: {
+        appliedDateRange: {
+          start: matchStage.createdAt?.$gte,
+          end: matchStage.createdAt?.$lte
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('\n=== Error Debug ===');
+    console.error('Error filtering orders:', error);
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+      debug: { matchStage: matchStage }
+    });
+  }
 };
+
   
 
