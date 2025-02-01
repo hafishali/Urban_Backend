@@ -82,7 +82,11 @@ orderSchema.pre('save', function (next) {
 orderSchema.post('save', async function (doc, next) {
   try {
     await doc.populate({ path: 'userId', select: 'name phone' });
-    await doc.populate({ path: 'addressId', select: 'address city state' });
+    await doc.populate({ path: 'addressId', select: 'address city state number' });
+    const userPhone = doc.userId?.phone;
+    const addressPhone = doc.addressId?.number; 
+    const customerMobile = addressPhone || userPhone;
+
 
     const generateUniqueInvoiceNumber = async () => {
       while (true) {
@@ -101,7 +105,7 @@ orderSchema.post('save', async function (doc, next) {
       invoice_Number: uniqueInvoiceNumber, // Unique 16-digit invoice number
       userId: doc.userId._id,
       customerName: doc.userId.name, // Get populated name
-      customerMobile: doc.userId.phone, // Get populated phone
+      customerMobile,
       address: doc.addressId, // Address already populated
       products: doc.products.map(product => ({
         productId: product.productId, // Ensure productId is valid
