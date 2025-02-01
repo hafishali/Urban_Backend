@@ -39,7 +39,7 @@ exports.createSlider = async (req, res) => {
 exports.getAllSliders = async (req, res) => {
     try {
         const sliders = await Slider.find();
-        res.status(200).json(sliders);
+        res.status(200).json({success:true,slider:sliders});
     } catch (err) {
         res.status(500).json({ message: 'Error fetching sliders', error: err.message })
     }
