@@ -39,7 +39,7 @@ exports.createSlider = async (req, res) => {
 exports.getAllSliders = async (req, res) => {
     try {
         const sliders = await Slider.find();
-        res.status(200).json({success:true,slider:sliders});
+        res.status(200).json(sliders);
     } catch (err) {
         res.status(500).json({ message: 'Error fetching sliders', error: err.message })
     }
@@ -146,20 +146,10 @@ exports.searchSlider = async (req, res) => {
 
         const sliderData = await Slider.find(query).populate('category');
 
-        // Add image URLs to the response
-        const sliders = sliderData.map((slider) => ({
-            id: slider._id,
-            title: slider.title,
-            MainCategory: {
-                id: slider.category?._id,
-                name: slider.category?.name,
-                description: slider.category?.description,
-                imageUrl: slider.category?.image
-            },
-            SubImageUrl: slider.image
-        }));
+        
+        
 
-        res.status(200).json(sliders);
+        res.status(200).json(sliderData);
     } catch (err) {
         res.status(500).json({ message: 'Error searching sliders', error: err.message });
     }
