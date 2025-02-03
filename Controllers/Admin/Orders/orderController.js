@@ -148,38 +148,100 @@ exports.filterOrders = async (req, res) => {
       {
         $match: matchStage
       },
+      // Populate userId
+      {
+        $lookup: {
+          from: "users", // Collection name for users
+          localField: "userId",
+          foreignField: "_id",
+          as: "userDetails"
+        }
+      },
+      {
+        $addFields: {
+          userId: {
+            _id: { $arrayElemAt: ["$userDetails._id", 0] },
+            name: { $arrayElemAt: ["$userDetails.name", 0] }
+          }
+        }
+      },
+      {
+        $project: {
+          "userDetails": 0 // Remove lookup array from response
+        }
+      },
+      // Populate addressId
+      {
+        $lookup: {
+          from: "addresses",
+          localField: "addressId",
+          foreignField: "_id",
+          as: "addressDetails"
+        }
+      },
+      {
+        $addFields: {
+          addressId: { $arrayElemAt: ["$addressDetails", 0] }
+        }
+      },
+      {
+        $project: {
+          "addressDetails": 0
+        }
+      },
+      // Unwind products array
       {
         $unwind: {
           path: "$products",
           preserveNullAndEmptyArrays: true
         }
       },
+      // Populate products.productId
+      {
+        $lookup: {
+          from: "products",
+          localField: "products.productId",
+          foreignField: "_id",
+          as: "products.productDetails"
+        }
+      },
+      {
+        $addFields: {
+          "products.productId": { $arrayElemAt: ["$products.productDetails", 0] }
+        }
+      },
+      {
+        $project: {
+          "products.productDetails": 0
+        }
+      },
+      // Re-group products back into an array
+      {
+        $group: {
+          _id: "$_id",
+          userId: { $first: "$userId" },
+          addressId: { $first: "$addressId" },
+          razorpayOrderId: { $first: "$razorpayOrderId" },
+          totalPrice: { $first: "$totalPrice" },
+          deliveryCharge: { $first: "$deliveryCharge" },
+          paymentMethod: { $first: "$paymentMethod" },
+          status: { $first: "$status" },
+          discountedAmount: { $first: "$discountedAmount" },
+          finalPayableAmount: { $first: "$finalPayableAmount" },
+          createdAt: { $first: "$createdAt" },
+          updatedAt: { $first: "$updatedAt" },
+          orderId: { $first: "$orderId" },
+          products: { $push: "$products" }
+        }
+      }
     ]);
 
     console.log('\n=== Results Debug ===');
     console.log('Number of orders found:', orders.length);
 
-    // If no orders found, get a quick sample of dates
-    if (orders.length === 0) {
-      const sampleDates = await Order.find({}, { createdAt: 1 })
-        .sort({ createdAt: -1 })
-        .limit(3);
-      console.log('Sample of recent order dates:', sampleDates.map(order => order.createdAt));
-    }
-
-    let filteredOrders = orders;
-    let unmatchedCategories = [];
-
     res.status(200).json({
-      filteredOrders,
-      unmatchedCategories,
-      totalOrders: filteredOrders.length,
-      debug: {
-        appliedDateRange: {
-          start: matchStage.createdAt?.$gte,
-          end: matchStage.createdAt?.$lte
-        }
-      }
+      filteredOrders: orders,
+      totalOrders: orders.length
     });
 
   } catch (error) {
@@ -192,6 +254,7 @@ exports.filterOrders = async (req, res) => {
     });
   }
 };
+
 
   
 
