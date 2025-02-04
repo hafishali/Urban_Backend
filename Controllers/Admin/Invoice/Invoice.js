@@ -126,19 +126,17 @@ try {
 // Search and fetch invoices
 exports.searchInvoices = async (req, res) => {
   try {
-    const { customerName, customerMobile,status,paymentId, } = req.query;
+    const { search, status, paymentId } = req.query;
 
     // Build a dynamic filter object
     const filter = {};
 
-    // Search by customer name (partial match using regex)
-    if (customerName) {
-      filter.customerName = { $regex: customerName, $options: 'i' }; // Case-insensitive
-    }
-
-    // Search by customer mobile
-    if (customerMobile) {
-      filter.customerMobile = { $regex: customerMobile, $options: 'i' };
+    // Search by customer name or customer mobile using the same parameter
+    if (search) {
+      filter.$or = [
+        { customerName: { $regex: search, $options: 'i' } }, // Case-insensitive name search
+        { customerMobile: { $regex: search, $options: 'i' } } // Case-insensitive mobile search
+      ];
     }
 
     // Search by invoice status
@@ -150,8 +148,6 @@ exports.searchInvoices = async (req, res) => {
     if (paymentId) {
       filter.paymentId = { $regex: paymentId, $options: 'i' };
     }
-
-    
 
     // Fetch invoices based on the filter
     const invoices = await Invoice.find(filter)
@@ -168,6 +164,7 @@ exports.searchInvoices = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch invoices', error: err.message });
   }
 };
+
 
 
 // filter invoice
