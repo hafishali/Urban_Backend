@@ -6,6 +6,7 @@ const orderSchema = new mongoose.Schema({
   orderId: { type: Number,required: true  ,unique: true }, // Unique numeric order ID
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   razorpayOrderId:{type:String},
+  razorpayPaymentId:{type:String},
   addressId: { type: mongoose.Schema.Types.ObjectId, ref: 'Address', required: true },
   products: [
     {

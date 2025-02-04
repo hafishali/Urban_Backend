@@ -8,75 +8,131 @@ const Coupon=require('../../../Models/Admin/CouponModel');
 const mongoose=require('mongoose')
 const razorpay = require('../../../config/RazorpayInstance');
 
-// Place an order
+
 // exports.placeOrder = async (req, res) => {
-//   const { userId, addressId, products, paymentMethod } = req.body;
+
+//   const { userId, addressId, paymentMethod, deliveryCharge, checkoutId } = req.body;
+
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
 
 //   try {
-//     // Validate address
-//     const address = await Address.findById(addressId);
-//     if (!address || address.userId.toString() !== userId) {
-//       return res.status(404).json({ message: "Invalid address ID or address does not belong to the user" });
-//     }
-
-//     // Validate products and calculate total price
-//     let totalPrice = 0;
-//     const validatedProducts = [];
-//     for (const product of products) {
-//       const productData = await Product.findById(product.productId);
-//       if (!productData) {
-//         return res.status(404).json({ message: `Product with ID ${product.productId} not found` });
-//       }
-
-//       if (!product.color || !product.size) {
-//         return res.status(400).json({ message: `Color and size are required for product ID ${product.productId}` });
-//       }
-
-//       // Check stock availability
-//       if (productData.stock < product.quantity) {
-//         return res.status(400).json({ message: `Insufficient stock for product ID ${product.productId}` });
-//       }
-
-//       // Deduct stock
-//       productData.stock -= product.quantity;
-//       await productData.save();
-
-//       validatedProducts.push({
-//         productId: productData._id,
-//         quantity: product.quantity,
-//         price: productData.offerPrice, // Assuming offerPrice is used for calculations
-//         color: product.color, // Include color
-//         size: product.size,   // Include size
+//     const checkout = await Checkout.findById(checkoutId)
+//       .populate("cartItems.productId")
+//       .populate({
+//         path: "coupen",
+//         model: "Coupon",
+//         select: "discountValue discountType code title",
 //       });
 
-//       totalPrice += product.quantity * productData.offerPrice;
+//     if (!checkout) throw new Error("Checkout not found");
+//     if (!checkout.cartItems || checkout.cartItems.length === 0) throw new Error("No products found in the checkout");
+
+//     const validatedProducts = [];
+//     let totalPrice = 0;
+
+//     for (const cartItem of checkout.cartItems) {
+//       const productData = cartItem.productId;
+//       if (!productData) throw new Error(`Product with ID ${cartItem.productId} not found`);
+
+//       const selectedColor = productData.colors.find((color) => color.color === cartItem.color);
+//       if (!selectedColor) throw new Error(`Invalid color '${cartItem.color}' for product '${productData.title}'`);
+
+//       const selectedSize = selectedColor.sizes.find((size) => size.size === cartItem.size);
+//       if (!selectedSize) throw new Error(`Invalid size '${cartItem.size}' for product '${productData.title}'`);
+
+//       if (selectedSize.stock < cartItem.quantity)
+//         throw new Error(`Insufficient stock for product '${productData.title}'`);
+
+//       selectedSize.stock -= cartItem.quantity;
+//       productData.totalStock -= cartItem.quantity;
+//       productData.orderCount += cartItem.quantity;
+
+//       productData.markModified("colors");
+//       validatedProducts.push({
+//         productId: productData._id,
+//         quantity: cartItem.quantity,
+//         price: productData.offerPrice,
+//         color: cartItem.color,
+//         size: cartItem.size,
+//       });
+
+//       totalPrice += cartItem.quantity * productData.offerPrice;
+//       await productData.save({ session });
 //     }
 
-//     // Generate unique numeric order ID
-//     const orderId = await generateNumericOrderId();
+//     let finalPayableAmount = checkout.discountedPrice + deliveryCharge;
 
-//     // Create the order
-//     const order = new Order({
-//       orderId, // Unique numeric ID
-//       userId,
-//       addressId,
-//       products: validatedProducts,
-//       totalPrice,
-//       paymentMethod,
-//     });
+//     if (paymentMethod === "UPI") {
+//       // Razorpay Order Creation
+//       const razorpayOrder = await razorpay.orders.create({
+//         amount: finalPayableAmount * 100,
+//         currency: "INR",
+//         receipt: `order_rcptid_${Date.now()}`,
+//       });
+//       const orderId = await generateNumericOrderId();
+//       // Save Razorpay Order
+//       const order = new Order({
+//         userId,
+//         addressId,
+//         products: validatedProducts,
+//         totalPrice,
+//         discountedAmount: checkout.discountedPrice,
+//         deliveryCharge,
+//         finalPayableAmount,
+//         paymentMethod: "UPI",
+//         paymentStatus: "pending",
+//         razorpayOrderId: razorpayOrder.id,
+//       });
 
-//     await order.save();
+//       await order.save({ session });
+//       await Cart.deleteOne({ userId }).session(session);
+//       await Checkout.deleteOne({ _id: checkoutId }).session(session);
+//       await session.commitTransaction();
+//       session.endSession();
 
-//     res.status(201).json({ message: "Order placed successfully", order });
+//       // Send Razorpay Order Details to Frontend
+//       return res.status(201).json({
+//         message: "Order created. Proceed to payment.",
+//         razorpayOrderId: razorpayOrder.id,
+//         amount: finalPayableAmount * 100,
+//         currency: "INR",
+//       });
+//     } else if (paymentMethod === "Cash on Delivery") {
+//       // Save COD Order
+//       const order = new Order({
+//         userId,
+//         addressId,
+//         products: validatedProducts,
+//         totalPrice,
+//         discountedAmount: checkout.discountedPrice,
+//         deliveryCharge,
+//         finalPayableAmount,
+//         paymentMethod: "Cash on Delivery",
+//         paymentStatus: "pending",
+//       });
+
+//       await order.save({ session });
+//       await session.commitTransaction();
+//       session.endSession();
+
+//       // Respond with COD Success
+//       return res.status(201).json({ message: "Order created successfully with Cash on Delivery." });
+//     }
+
+//     throw new Error("Invalid payment method");
 //   } catch (err) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     console.error("Error placing order:", err);
 //     res.status(500).json({ message: "Server error", error: err.message });
 //   }
 // };
-exports.placeOrder = async (req, res) => {
-  const { userId, addressId, paymentMethod, deliveryCharge, checkoutId } = req.body;
 
-  const session = await mongoose.startSession();
-  session.startTransaction();
+// initiate order
+exports.initiateOrder = async (req, res) => {
+  const { deliveryCharge, checkoutId } = req.body;
+  console.log(req.user.id)
 
   try {
     const checkout = await Checkout.findById(checkoutId)
@@ -87,8 +143,61 @@ exports.placeOrder = async (req, res) => {
         select: "discountValue discountType code title",
       });
 
+    if (!checkout) return res.status(400).json({ message: "Checkout not found" });
+    if (!checkout.cartItems || checkout.cartItems.length === 0)
+      return res.status(400).json({ message: "No products found in checkout" });
+
+    let totalPrice = checkout.discountedPrice + deliveryCharge;
+
+    // Create Razorpay Order
+    const razorpayOrder = await razorpay.orders.create({
+      amount: totalPrice * 100, // Convert to paisa
+      currency: "INR",
+      receipt: `order_rcptid_${Date.now()}`,
+    });
+
+    return res.status(200).json({
+      message: "Payment initiated, proceed with Razorpay",
+      razorpayOrderId: razorpayOrder.id,
+      amount: totalPrice * 100,
+      currency: "INR",
+    });
+  } catch (err) {
+    console.error("Error initiating order:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// place order
+const crypto = require("crypto");
+
+exports.placeOrder = async (req, res) => {
+  const { userId, addressId, paymentMethod, deliveryCharge, checkoutId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Verify Razorpay Payment Signature
+    const generatedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest("hex");
+
+    if (generatedSignature !== razorpaySignature) {
+      throw new Error("Payment verification failed");
+    }
+
+    const checkout = await Checkout.findById(checkoutId)
+      .populate("cartItems.productId")
+      .populate({
+        path: "coupen",
+        model: "Coupon",
+        select: "discountValue discountType code title",
+      });
+
     if (!checkout) throw new Error("Checkout not found");
-    if (!checkout.cartItems || checkout.cartItems.length === 0) throw new Error("No products found in the checkout");
+    if (!checkout.cartItems || checkout.cartItems.length === 0) throw new Error("No products found in checkout");
 
     const validatedProducts = [];
     let totalPrice = 0;
@@ -125,69 +234,33 @@ exports.placeOrder = async (req, res) => {
 
     let finalPayableAmount = checkout.discountedPrice + deliveryCharge;
 
-    if (paymentMethod === "UPI") {
-      // Razorpay Order Creation
-      const razorpayOrder = await razorpay.orders.create({
-        amount: finalPayableAmount * 100,
-        currency: "INR",
-        receipt: `order_rcptid_${Date.now()}`,
-      });
-      const orderId = await generateNumericOrderId();
-      // Save Razorpay Order
-      const order = new Order({
-        userId,
-        addressId,
-        products: validatedProducts,
-        totalPrice,
-        discountedAmount: checkout.discountedPrice,
-        deliveryCharge,
-        finalPayableAmount,
-        paymentMethod: "UPI",
-        paymentStatus: "pending",
-        razorpayOrderId: razorpayOrder.id,
-      });
+    // Save order only after payment success
+    const order = new Order({
+      userId,
+      addressId,
+      products: validatedProducts,
+      totalPrice,
+      discountedAmount: checkout.discountedPrice,
+      deliveryCharge,
+      finalPayableAmount,
+      paymentMethod: "UPI",
+      paymentStatus: "Paid",
+      razorpayOrderId,
+      razorpayPaymentId,
+    });
 
-      await order.save({ session });
-      await Cart.deleteOne({ userId }).session(session);
-      await Checkout.deleteOne({ _id: checkoutId }).session(session);
-      await session.commitTransaction();
-      session.endSession();
+    await order.save({ session });
+    await Cart.deleteOne({ userId }).session(session);
+    await Checkout.deleteOne({ _id: checkoutId }).session(session);
+    await session.commitTransaction();
+    session.endSession();
 
-      // Send Razorpay Order Details to Frontend
-      return res.status(201).json({
-        message: "Order created. Proceed to payment.",
-        razorpayOrderId: razorpayOrder.id,
-        amount: finalPayableAmount * 100,
-        currency: "INR",
-      });
-    } else if (paymentMethod === "Cash on Delivery") {
-      // Save COD Order
-      const order = new Order({
-        userId,
-        addressId,
-        products: validatedProducts,
-        totalPrice,
-        discountedAmount: checkout.discountedPrice,
-        deliveryCharge,
-        finalPayableAmount,
-        paymentMethod: "Cash on Delivery",
-        paymentStatus: "pending",
-      });
-
-      await order.save({ session });
-      await session.commitTransaction();
-      session.endSession();
-
-      // Respond with COD Success
-      return res.status(201).json({ message: "Order created successfully with Cash on Delivery." });
-    }
-
-    throw new Error("Invalid payment method");
+    return res.status(201).json({ message: "Order placed successfully", orderId: order._id });
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
     console.error("Error placing order:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 

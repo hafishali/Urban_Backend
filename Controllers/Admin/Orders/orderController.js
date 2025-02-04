@@ -239,10 +239,10 @@ exports.filterOrders = async (req, res) => {
     console.log('\n=== Results Debug ===');
     console.log('Number of orders found:', orders.length);
 
-    res.status(200).json({
-      filteredOrders: orders,
-      totalOrders: orders.length
-    });
+    res.status(200).json(
+      orders
+     
+    );
 
   } catch (error) {
     console.error('\n=== Error Debug ===');
