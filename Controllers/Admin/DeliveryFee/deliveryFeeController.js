@@ -26,7 +26,7 @@ exports.addDeliveryFee = async (req, res) => {
 // Get all delivery fees
 exports.getDeliveryFees = async (req, res) => {
   try {
-    const fees = await DeliveryFee.find();
+    const fees = await DeliveryFee.find().sort({createdAt:-1})
     res.status(200).json({ message: "Delivery fees fetched successfully.", data: fees });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });

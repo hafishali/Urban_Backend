@@ -4,7 +4,7 @@ const Product = require('../../../Models/Admin/ProductModel');
 // Get all products
 exports.getAllProducts = async (req, res) => {
     try {
-      const products = await Product.find().populate('category').populate('subcategory');
+      const products = await Product.find().populate('category').populate('subcategory').sort({createdAt:-1})
       res.status(200).json(products);
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -85,7 +85,7 @@ exports.searchProductsByName = async (req, res) => {
 exports.getSimilarProducts = async (req, res) => {
   try {
     const { productId } = req.params;   
-    const referenceProduct = await Product.findById(productId);
+    const referenceProduct = await Product.findById(productId).sort({createdAt:-1})
     if (!referenceProduct) {
       return res.status(404).json({ message: "Reference product not found" });
     }

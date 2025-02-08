@@ -38,7 +38,7 @@ exports.createSlider = async (req, res) => {
 // get all sliders
 exports.getAllSliders = async (req, res) => {
     try {
-        const sliders = await Slider.find();
+        const sliders = await Slider.find().sort({createdAt:-1})
         res.status(200).json(sliders);
     } catch (err) {
         res.status(500).json({ message: 'Error fetching sliders', error: err.message })

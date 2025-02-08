@@ -44,7 +44,7 @@ exports.getProfile = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
     try {
         // Fetch all users
-        const users = await User.find();
+        const users = await User.find().sort({createdAt:-1})
 
         // Fetch associated addresses for each user
         const usersWithAddresses = await Promise.all(

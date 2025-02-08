@@ -24,6 +24,12 @@ const orderSchema = new mongoose.Schema({
     required: true,
     enum: ['Cash on Delivery', 'Credit Card', 'UPI', 'Net Banking'],
   },
+  paymentStatus: {
+    type: String,
+    required: true,
+    enum: ['Pending', 'Paid'],
+  },
+
   TrackId:{
     type:String
   },

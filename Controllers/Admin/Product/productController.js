@@ -89,7 +89,7 @@ exports.getAllProducts = async (req, res) => {
 
     const products = await Product.find(filter)
       .populate('category')
-      .populate('subcategory');
+      .populate('subcategory').sort({createdAt:-1})
 
     res.status(200).json(products);
   } catch (error) {
