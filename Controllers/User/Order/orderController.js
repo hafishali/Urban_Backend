@@ -7,6 +7,8 @@ const Checkout=require('../../../Models/User/CheckoutModel')
 const Coupon=require('../../../Models/Admin/CouponModel');
 const mongoose=require('mongoose')
 const razorpay = require('../../../config/RazorpayInstance');
+const crypto = require("crypto");
+
 
 
 // exports.placeOrder = async (req, res) => {
@@ -169,7 +171,6 @@ exports.initiateOrder = async (req, res) => {
 };
 
 // place order
-const crypto = require("crypto");
 
 exports.placeOrder = async (req, res) => {
   const { userId, addressId, paymentMethod, deliveryCharge, checkoutId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
@@ -180,7 +181,7 @@ exports.placeOrder = async (req, res) => {
   try {
     // Verify Razorpay Payment Signature
     const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .createHmac("sha256", process.env.Razorpay_Secret)
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest("hex");
 
