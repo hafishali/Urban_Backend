@@ -30,7 +30,7 @@ exports.createSubCategory=async(req,res)=>{
 // get subcategory
 exports.getSubCategories = async (req, res) => {
     try {
-        const subcategory = await SubCategory.find().populate('category')
+        const subcategory = await SubCategory.find().populate('category').sort({createdAt:-1})
 
        
         res.status(200).json(subcategory);

@@ -4,7 +4,7 @@ const Product = require('../../../Models/Admin/ProductModel')
 
 exports.getCategories = async (req, res) => {
     try {
-        const categories = await Category.find();
+        const categories = await Category.find().sort({createdAt:-1})
 
         const categoriesWithImageUrl = categories.map((category) => ({
             id: category._id,
