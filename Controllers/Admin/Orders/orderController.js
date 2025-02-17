@@ -39,7 +39,7 @@ exports.updateOrderStatus = async (req, res) => {
         const { status,TrackId } = req.body; // New status
 
         // Validate status
-        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
+        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'invoice_generated','Cancelled'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid status value" });
         }
@@ -73,7 +73,7 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: "Invalid or empty orderIds array" });
         }
 
-        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
+        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'invoice_generated','Delivered', 'Cancelled'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message:"Invalid status value"});
         }

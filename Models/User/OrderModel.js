@@ -36,7 +36,7 @@ const orderSchema = new mongoose.Schema({
   status: {
     type: String,
     default: 'Pending',
-    enum: ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'],
+    enum: ['Pending', 'Processing', 'In-Transist', 'invoice_generated','Delivered', 'Cancelled'],
   },
   discountedAmount:{
     type:Number
@@ -86,58 +86,88 @@ orderSchema.pre('save', function (next) {
 });
 
 
-orderSchema.post('save', async function (doc, next) {
+const generateUniqueInvoiceNumber = async () => {
+  while (true) {
+    const prefix = "2025UB"; // Your desired prefix
+    const randomPart = Array.from({ length: 10 }, () => crypto.randomInt(0, 10)).join('');
+    const invoiceNumber = `${prefix}${randomPart}`;
+
+    const existingInvoice = await Invoice.findOne({ invoice_Number: invoiceNumber });
+    if (!existingInvoice) return invoiceNumber; // Return if unique
+  }
+};
+
+
+const createInvoiceForOrder = async (order) => {
   try {
-    await doc.populate({ path: 'userId', select: 'name phone' });
-    await doc.populate({ path: 'addressId', select: 'address city state number' });
-    const userPhone = doc.userId?.phone;
-    const addressPhone = doc.addressId?.number; 
-    const customerMobile = addressPhone || userPhone;
+    // Populate necessary fields for the invoice
+    const updatedOrder = await Order.findById(order._id)
+      .populate({ path: "userId", select: "name phone" })
+      .populate({ path: "addressId", select: "address city state number" });
+      console.log(updatedOrder)
 
+    if (!updatedOrder || updatedOrder.status !== "invoice_generated") return;
 
-    const generateUniqueInvoiceNumber = async () => {
-      while (true) {
-        const randomPart = Array.from({ length: 16 }, () => crypto.randomInt(0, 10)).join('');
-        const existingInvoice = await Invoice.findOne({ invoice_Number: randomPart });
-        if (!existingInvoice) {
-          return randomPart; // Return the unique number if no match is found
-        }
-        // Loop continues if a duplicate is found
-      }
-    };
+    const existingInvoice = await Invoice.findOne({ order_id: updatedOrder._id });
+    if (existingInvoice) {
+      console.log(`Invoice already exists for Order ID: ${updatedOrder._id}`);
+      return; 
+    }
 
     const uniqueInvoiceNumber = await generateUniqueInvoiceNumber();
 
     const invoice = new Invoice({
-      invoice_Number: uniqueInvoiceNumber, // Unique 16-digit invoice number
-      userId: doc.userId._id,
-      customerName: doc.userId.name, // Get populated name
-      customerMobile,
-      address: doc.addressId, // Address already populated
-      products: doc.products.map(product => ({
-        productId: product.productId, // Ensure productId is valid
+      invoice_Number: uniqueInvoiceNumber, 
+      userId: updatedOrder.userId._id,
+      order_id:updatedOrder._id,
+      customerName: updatedOrder.userId.name,
+      customerMobile: updatedOrder.addressId?.number || updatedOrder.userId?.phone,
+      address: updatedOrder.addressId,
+      products: updatedOrder.products.map(product => ({
+        productId: product.productId,
         size: product.size,
         price: product.price,
         quantity: product.quantity,
       })),
-      SubTotalAmount: doc.totalPrice,
-      Delivery_Charge: doc.deliveryCharge,
-      Discounted_Amount: doc.discountedAmount,
-      totalAmount: doc.finalPayableAmount,
-      payment_method: doc.paymentMethod,
-      status: doc.status,
+      SubTotalAmount: updatedOrder.totalPrice,
+      Delivery_Charge: updatedOrder.deliveryCharge,
+      Discounted_Amount: updatedOrder.discountedAmount,
+      totalAmount: updatedOrder.finalPayableAmount,
+      payment_method: updatedOrder.paymentMethod,
+      status: updatedOrder.paymentStatus,
     });
 
-    // Save the invoice
     await invoice.save();
-    console.log(`Invoice created for order ID: ${doc._id}`);
-    next();
+    console.log(` Invoice created for Order ID: ${updatedOrder._id}`);
   } catch (error) {
-    console.error(`Error creating invoice for order ID: ${doc._id}`, error);
-    next(error); // Pass the error to the next middleware
+    console.error(` Error creating invoice for Order ID: ${order._id}`, error);
   }
+};
+
+
+// POST-SAVE HOOK (Handles Single Order Save)
+orderSchema.post("findOneAndUpdate", async function (doc, next) {
+  await createInvoiceForOrder(doc);
+  next();
 });
 
+// POST-UPDATE-MANY HOOK (Handles Bulk Order Updates)
+orderSchema.post("updateMany", async function (doc, next) {
+  try {
+    const query = this.getQuery(); // Gets the filter used in updateMany()
+    const updatedOrders = await Order.find(query);
+
+    // Process only orders where status is "invoice_generated"
+    const ordersToInvoice = updatedOrders.filter(order => order.status === "invoice_generated");
+
+    await Promise.all(ordersToInvoice.map(order => createInvoiceForOrder(order)));
+
+    next();
+  } catch (error) {
+    console.error(`Error processing bulk invoice creation`, error);
+    next(error);
+  }
+});
 
 
 
