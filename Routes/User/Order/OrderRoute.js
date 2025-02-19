@@ -14,7 +14,7 @@ router.post('/confirm', jwtVerify(['user']), orderController.placeOrder)
 router.get('/view/:userId', jwtVerify(['user']), orderController.getUserOrders);
 
 // Get order details by ID
-router.get('/orders/:orderId', jwtVerify(['user']), orderController.getOrderById);
+router.get('/orders/:orderId', jwtVerify(['user','admin']), orderController.getOrderById);
 
 
 

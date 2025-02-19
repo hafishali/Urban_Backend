@@ -146,7 +146,7 @@ exports.searchSubCategory = async (req, res) => {
 
        
 
-        const SubCategoryData = await SubCategory.find(query).populate('category');
+        const SubCategoryData = await SubCategory.find(query).populate('category').sort({createdAt:-1})
 
        
 
