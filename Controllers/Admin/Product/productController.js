@@ -17,6 +17,13 @@ const s3 = new S3Client({
       
       const imageUrls = req.fileUrls || [];
       console.log(imageUrls)
+      const existingProduct = await Product.findOne({ product_Code: req.body.product_Code });
+
+      if (existingProduct) {
+        return res.status(400).json({
+          error: "A product with the same Product Code already exists.",
+        });
+      }
 
       // Step 2: Parse and validate colors with robust error handling
       let colors = [];

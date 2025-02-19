@@ -3,99 +3,228 @@ const Order = require('../../../Models/User/OrderModel');
 const User = require('../../../Models/User/UserModel');
 const Address = require('../../../Models/User/AddressModel');
 const Product = require('../../../Models/Admin/ProductModel');
+const { sendEmail } = require('../../../config/mailGun');
+const Invoice=require('../../../Models/Admin/InvoiceModel')
+
+
+
+// email body
+const sendOrderStatusEmail = async (order) => {
+  try {
+      const userEmail = order.userId.email;
+      let subject = "Order Status Update - URBAAN COLLECTIONS";
+      let text = "";
+
+      if (order.status === "In-Transist" && order.TrackId) {
+          text = `Your order #${order.orderId} has been dispatched. You can track it using this link: ${order.TrackId}.`;
+      } else if (order.status === "Delivered") {
+          text = `Your order #${order.orderId} has been successfully delivered. We hope you love your purchase! Let us know your feedback.`;
+      }
+
+      if (text) {
+          await sendEmail(userEmail, subject, text);
+      }
+  } catch (error) {
+      console.error("Error sending email:", error.message);
+  }
+};
+
 
 
 // Get all orders
 exports.getAllOrder = async (req, res) => {
-    try {
-        const orders = await Order.find()
-            .populate('userId', 'name') 
-            .populate('addressId', 'address city state pincode')
-            .populate('products.productId', 'title') 
-            .sort({ createdAt: -1 });
-        // Map the orders with necessary details
-        // const orderList = orders.map(order => ({
-        //         orderId: order.orderId, // 4-digit order ID
-        //         customerName: order.userId.name, // Access populated name from userId
-        //         address: `${order.addressId.address}, ${order.addressId.city}, ${order.addressId.state}, ${order.addressId.pincode}`,
-        //         deliveryDate: new Date(order.createdAt).toLocaleDateString(), // Format delivery date
-        //         products: order.products.map(product => ({
-        //             productName: product.productId ? product.productId.title : 'N/A', // Ensure productId is valid and return title
-        //             size: product.size,
-        //         })),
-        //         paymentMethod: order.paymentMethod,
-        //         status: order.status, // Order status
-        //         action: order.status,
-        // }));
-        res.status(200).json(orders);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching orders", error: err.message });
-    }
+  try {
+    const orders = await Order.find()
+      .populate('userId', 'name')
+      .populate('addressId', 'address city state pincode')
+      .populate('products.productId', 'title')
+      .sort({ createdAt: -1 });
+    // Map the orders with necessary details
+    // const orderList = orders.map(order => ({
+    //         orderId: order.orderId, // 4-digit order ID
+    //         customerName: order.userId.name, // Access populated name from userId
+    //         address: `${order.addressId.address}, ${order.addressId.city}, ${order.addressId.state}, ${order.addressId.pincode}`,
+    //         deliveryDate: new Date(order.createdAt).toLocaleDateString(), // Format delivery date
+    //         products: order.products.map(product => ({
+    //             productName: product.productId ? product.productId.title : 'N/A', // Ensure productId is valid and return title
+    //             size: product.size,
+    //         })),
+    //         paymentMethod: order.paymentMethod,
+    //         status: order.status, // Order status
+    //         action: order.status,
+    // }));
+    res.status(200).json(orders);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching orders", error: err.message });
+  }
 };
 // Update order status
 exports.updateOrderStatus = async (req, res) => {
-    try {
-        const { orderId } = req.params; // Order ID
-        const { status,TrackId } = req.body; // New status
+  try {
+      const { orderId } = req.params;
+      const { status, TrackId } = req.body;
 
-        // Validate status
-        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message: "Invalid status value" });
-        }
+      // Validate status
+      const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'invoice_generated', 'Cancelled'];
+      if (status && !validStatuses.includes(status)) {
+          return res.status(400).json({ message: "Invalid status value" });
+      }
 
-        // Update the order's status
-        const order = await Order.findByIdAndUpdate(
-            orderId,
-            { status,TrackId},
-            { new: true } // Return the updated document
-        ).populate('userId', 'name') // Populate user name only
-         .populate('addressId', 'address city state pincode') // Populate address details
-         .populate('products.productId', 'title'); // Populate productId with title only
+      // Update the order
+      const order = await Order.findByIdAndUpdate(
+          orderId,
+          { status, TrackId },
+          { new: true }
+      )
+      .populate('userId', 'name email')
+      .populate('addressId', 'address city state pincode')
+      .populate('products.productId', 'title');
 
-        if (!order) {
-            return res.status(404).json({ message: "Order not found" });
-        }
+      if (!order) {
+          return res.status(404).json({ message: "Order not found" });
+      }
 
-        res.status(200).json({ message: "Order status updated successfully", order });
-    } catch (err) {
-        res.status(500).json({ message: "Error updating order status", error: err.message });
-    }
+      // Send email based on order status
+      if ((order.status === "In-Transist" && order.TrackId) || order.status === "Delivered") {
+          await sendOrderStatusEmail(order);
+      } else if (order.status === "In-Transist" && !order.TrackId) {
+          return res.status(400).json({ message: "This order doesn't have a tracking ID" });
+      }
+
+      res.status(200).json({ message: "Order status updated successfully", order });
+  } catch (err) {
+      res.status(500).json({ message: "Error updating order status", error: err.message });
+  }
 };
+
 
 // bulk edit on status
 exports.bulkUpdateOrderStatus = async (req, res) => {
-    try {
-        const { orderIds, status } = req.body; 
+  try {
+    const { orderIds, status } = req.body;
 
-        
-        if (!Array.isArray(orderIds) || !orderIds.length) {
-            return res.status(400).json({ message: "Invalid or empty orderIds array" });
-        }
-
-        const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message:"Invalid status value"});
-        }
-
-        // Update the status for each order in bulk
-        const orders = await Order.updateMany(
-            { _id: { $in: orderIds } },
-            { status },
-            { new: true } // Return updated documents
-        ).populate('userId', 'name') // Populate user name only
-         .populate('addressId', 'address city state pincode') // Populate address details
-         .populate('products.productId', 'title'); // Populate productId with title only
-
-        if (orders.nModified === 0) {
-            return res.status(404).json({ message: "No orders found or status already updated for all selected orders" });
-        }
-
-        res.status(200).json({ message: `${orders.nModified} orders updated successfully`, orders });
-    } catch (err) {
-        res.status(500).json({ message: "Error updating order statuses", error: err.message });
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({ message: "Invalid or empty orderIds array" });
     }
+
+    const validStatuses = ['Pending', 'Processing', 'In-Transist', 'invoice_generated', 'Delivered', 'Cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    // Fetch orders & their invoices before updating
+    const orders = await Order.find({ _id: { $in: orderIds } })
+      .populate('userId', 'name email')
+      .populate('products.productId', 'title');
+
+    let invalidOrders = [];
+    let validOrders = [];
+    let emailOrders = [];
+    let invoicesToUpdate = [];
+    let skippedEmails = [];
+
+    for (const order of orders) {
+      if (status === 'In-Transist' && !order.TrackId) {
+        invalidOrders.push(order);
+      } else {
+        validOrders.push(order);
+        
+        // Fetch corresponding invoice
+        const invoice = await Invoice.findOne({ order_id: order._id });
+
+        if (invoice) {
+          let shouldSendEmail = false;
+          
+          if (status === 'In-Transist') {
+            if (!invoice.dispatchMail) {
+              shouldSendEmail = true;
+              invoicesToUpdate.push({ invoiceId: invoice._id, field: 'dispatchMail' });
+            } else {
+              skippedEmails.push(order._id); // Log orders where mail is already sent
+            }
+          } 
+          
+          if (status === 'Delivered') {
+            if (!invoice.deliveryMail) {
+              shouldSendEmail = true;
+              invoicesToUpdate.push({ invoiceId: invoice._id, field: 'deliveryMail' });
+            } else {
+              skippedEmails.push(order._id);
+            }
+          }
+
+          if (shouldSendEmail) emailOrders.push(order);
+        }
+      }
+    }
+
+    // If no valid orders or eligible emails, return an error
+    if (validOrders.length === 0 && emailOrders.length === 0) {
+      return res.status(400).json({
+        message: "No valid orders found for updating.",
+        skippedOrders: invalidOrders.map(order => ({
+          _id: order._id,
+          order_id: order.orderId,
+          userId: order.userId,
+          products: order.products,
+          status: order.status,
+          TrackId: order.TrackId
+        }))
+      });
+    }
+
+    // Update only valid orders
+    if (validOrders.length > 0) {
+      await Order.updateMany(
+        { _id: { $in: validOrders.map(order => order._id) } },
+        { $set: { status } }
+      );
+    }
+
+    // Send emails only for eligible orders
+    if (emailOrders.length > 0) {
+      const emailPromises = emailOrders.map(order => sendOrderStatusEmail(order));
+      await Promise.all(emailPromises);
+
+      // Update invoices after sending emails
+      for (const update of invoicesToUpdate) {
+        await Invoice.findByIdAndUpdate(update.invoiceId, { $set: { [update.field]: true } });
+      }
+    }
+
+    // Fetch updated orders for response
+    const validOrderDetails = await Order.find({ _id: { $in: validOrders.map(order => order._id) } })
+      .populate('userId', 'name email')
+      .populate('products.productId', 'title');
+
+    res.status(200).json({
+      message: `Updated ${validOrders.length} orders successfully.`,
+      ...(invalidOrders.length > 0 && {
+        warning: `${invalidOrders.length} orders were skipped due to missing TrackId.`,
+        skippedOrders: invalidOrders.map(order => ({
+          _id: order._id,
+          order_id: order.orderId,
+          userId: order.userId,
+          products: order.products,
+          status: order.status,
+          TrackId: order.TrackId
+        }))
+      }),
+      ...(skippedEmails.length > 0 && {
+        skippedEmails: `Skipped ${skippedEmails.length} orders as emails were already sent.`,
+        skippedEmailOrders: skippedEmails
+      }),
+      updatedOrders: validOrderDetails
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Error updating order statuses", error: err.message });
+  }
 };
+
+
+
+
 
 // filter order
 exports.filterOrders = async (req, res) => {
@@ -151,7 +280,7 @@ exports.filterOrders = async (req, res) => {
       // Populate userId
       {
         $lookup: {
-          from: "users", // Collection name for users
+          from: "users",
           localField: "userId",
           foreignField: "_id",
           as: "userDetails"
@@ -167,7 +296,7 @@ exports.filterOrders = async (req, res) => {
       },
       {
         $project: {
-          "userDetails": 0 // Remove lookup array from response
+          "userDetails": 0
         }
       },
       // Populate addressId
@@ -215,6 +344,10 @@ exports.filterOrders = async (req, res) => {
           "products.productDetails": 0
         }
       },
+      // **🔹 Add Sorting Stage Here**
+      {
+        $sort: { createdAt: -1 } // Sort in descending order (latest first)
+      },
       // Re-group products back into an array
       {
         $group: {
@@ -233,15 +366,19 @@ exports.filterOrders = async (req, res) => {
           orderId: { $first: "$orderId" },
           products: { $push: "$products" }
         }
+      },
+      {
+        $sort: { createdAt: -1 } // **Sort Again after Grouping**
       }
     ]);
+    
 
     console.log('\n=== Results Debug ===');
     console.log('Number of orders found:', orders.length);
 
     res.status(200).json(
       orders
-     
+
     );
 
   } catch (error) {
@@ -256,5 +393,5 @@ exports.filterOrders = async (req, res) => {
 };
 
 
-  
+
 

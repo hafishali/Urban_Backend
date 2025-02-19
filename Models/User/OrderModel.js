@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Invoice=require('../../Models/Admin/InvoiceModel')
+const Counter=require('../../Models/User/CounterModel')
 const crypto = require('crypto'); 
 
 const orderSchema = new mongoose.Schema({
@@ -36,7 +37,7 @@ const orderSchema = new mongoose.Schema({
   status: {
     type: String,
     default: 'Pending',
-    enum: ['Pending', 'Processing', 'In-Transist', 'Delivered', 'Cancelled'],
+    enum: ['Pending', 'Processing', 'In-Transist', 'invoice_generated','Delivered', 'Cancelled'],
   },
   discountedAmount:{
     type:Number
@@ -60,24 +61,25 @@ const orderSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
-orderSchema.statics.generateOrderId = async function () {
-  const lastOrder = await this.findOne().sort({ orderId: -1 }).limit(1);
-  const lastOrderId = lastOrder ? lastOrder.orderId : 0;
-  return lastOrderId + 1;
-};
 
-// Generate orderId before validation
-orderSchema.pre('validate', async function (next) {
+
+orderSchema.pre("validate", async function (next) {
   if (!this.orderId) {
     try {
-      const orderId = await this.constructor.generateOrderId();
-      this.orderId = orderId;
+      const counter = await Counter.findOneAndUpdate(
+        { _id: "orderId" }, // Ensure it matches your Counter schema's `_id`
+        { $inc: { sequenceValue: 1 } }, // Correct field name
+        { new: true, upsert: true }
+      );
+
+      this.orderId = counter.sequenceValue; // Use the correct field name
     } catch (error) {
       return next(error);
     }
   }
   next();
 });
+
 
 // Update updatedAt on save
 orderSchema.pre('save', function (next) {
@@ -86,58 +88,127 @@ orderSchema.pre('save', function (next) {
 });
 
 
-orderSchema.post('save', async function (doc, next) {
+const generateUniqueInvoiceNumber = async () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const nextYear = currentYear + 1;
+
+  // Determine Financial Year (April - March)
+  const financialYear =
+    now.getMonth() + 1 >= 4
+      ? `${String(currentYear).slice(2)}-${String(nextYear).slice(2)}`
+      : `${String(currentYear - 1).slice(2)}-${String(currentYear).slice(2)}`;
+
+  const prefix = `URO${financialYear}`; // Example: URO24-25
+
+  // Generate a unique counter ID for each financial year
+  const counterId = `invoice_${financialYear}`;
+
+  // Find or create a counter for the current financial year
+  const counter = await Counter.findOneAndUpdate(
+    { _id: counterId },  // Use financial-year-specific ID
+    { $inc: { sequenceValue: 1 } }, // Increment sequence
+    { new: true, upsert: true, setDefaultsOnInsert: true } // Create if not exists
+  );
+
+  // Ensure the sequence is 7 digits long (0000001, 0000002, etc.)
+  const formattedNumber = String(counter.sequenceValue).padStart(7, '0');
+
+  return `${prefix}${formattedNumber}`; // Example: URO24-25000001
+};
+
+
+
+
+const createInvoiceForOrder = async (order) => {
   try {
-    await doc.populate({ path: 'userId', select: 'name phone' });
-    await doc.populate({ path: 'addressId', select: 'address city state number' });
-    const userPhone = doc.userId?.phone;
-    const addressPhone = doc.addressId?.number; 
-    const customerMobile = addressPhone || userPhone;
+    // Fetch order details with population
+    const updatedOrder = await Order.findById(order._id)
+      .populate({ path: "userId", select: "name phone" })
+      .populate({ path: "addressId", select: "address city state number" });
 
+    // 🔹 Check if order exists
+    if (!updatedOrder) {
+      console.error(`❌ Order not found for ID: ${order._id}`);
+      return;
+    }
 
-    const generateUniqueInvoiceNumber = async () => {
-      while (true) {
-        const randomPart = Array.from({ length: 16 }, () => crypto.randomInt(0, 10)).join('');
-        const existingInvoice = await Invoice.findOne({ invoice_Number: randomPart });
-        if (!existingInvoice) {
-          return randomPart; // Return the unique number if no match is found
-        }
-        // Loop continues if a duplicate is found
-      }
-    };
+    // 🔹 Ensure order status is correct
+    if (updatedOrder.status !== "invoice_generated") {
+      console.warn(`⚠️ Order ${updatedOrder._id} does not have status "invoice_generated"`);
+      return;
+    }
 
+    // 🔹 Ensure userId is not null
+    if (!updatedOrder.userId) {
+      console.error(`❌ Order ${updatedOrder._id} has no associated user`);
+      return;
+    }
+
+    // 🔹 Check if invoice already exists
+    const existingInvoice = await Invoice.findOne({ order_id: updatedOrder._id });
+    if (existingInvoice) {
+      console.log(`✅ Invoice already exists for Order ID: ${updatedOrder._id}`);
+      return;
+    }
+
+    // Generate invoice number
     const uniqueInvoiceNumber = await generateUniqueInvoiceNumber();
 
+    // Create invoice
     const invoice = new Invoice({
-      invoice_Number: uniqueInvoiceNumber, // Unique 16-digit invoice number
-      userId: doc.userId._id,
-      customerName: doc.userId.name, // Get populated name
-      customerMobile,
-      address: doc.addressId, // Address already populated
-      products: doc.products.map(product => ({
-        productId: product.productId, // Ensure productId is valid
-        size: product.size,
-        price: product.price,
-        quantity: product.quantity,
-      })),
-      SubTotalAmount: doc.totalPrice,
-      Delivery_Charge: doc.deliveryCharge,
-      Discounted_Amount: doc.discountedAmount,
-      totalAmount: doc.finalPayableAmount,
-      payment_method: doc.paymentMethod,
-      status: doc.status,
+      invoice_Number: uniqueInvoiceNumber, 
+      userId: updatedOrder.userId._id,
+      order_id: updatedOrder._id,
+      customerName: updatedOrder.userId.name,
+      customerMobile: updatedOrder.addressId?.number || updatedOrder.userId?.phone,
+      address: updatedOrder.addressId || {}, // Ensure no null error
+      products: updatedOrder.products?.map(product => ({
+        productId: product?.productId || null,
+        size: product?.size || null,
+        price: product?.price || 0,
+        quantity: product?.quantity || 1,
+      })) || [],
+      SubTotalAmount: updatedOrder.totalPrice || 0,
+      Delivery_Charge: updatedOrder.deliveryCharge || 0,
+      Discounted_Amount: updatedOrder.discountedAmount || 0,
+      totalAmount: updatedOrder.finalPayableAmount || 0,
+      payment_method: updatedOrder.paymentMethod || "unknown",
+      status: updatedOrder.paymentStatus || "pending",
     });
 
-    // Save the invoice
     await invoice.save();
-    console.log(`Invoice created for order ID: ${doc._id}`);
-    next();
+    console.log(`✅ Invoice created for Order ID: ${updatedOrder._id}`);
   } catch (error) {
-    console.error(`Error creating invoice for order ID: ${doc._id}`, error);
-    next(error); // Pass the error to the next middleware
+    console.error(`❌ Error creating invoice for Order ID: ${order._id}`, error);
   }
+};
+
+
+
+// POST-SAVE HOOK (Handles Single Order Save)
+orderSchema.post("findOneAndUpdate", async function (doc, next) {
+  await createInvoiceForOrder(doc);
+  next();
 });
 
+// POST-UPDATE-MANY HOOK (Handles Bulk Order Updates)
+orderSchema.post("updateMany", async function (doc, next) {
+  try {
+    const query = this.getQuery(); // Gets the filter used in updateMany()
+    const updatedOrders = await Order.find(query);
+
+    // Process only orders where status is "invoice_generated"
+    const ordersToInvoice = updatedOrders.filter(order => order.status === "invoice_generated");
+
+    await Promise.all(ordersToInvoice.map(order => createInvoiceForOrder(order)));
+
+    next();
+  } catch (error) {
+    console.error(`Error processing bulk invoice creation`, error);
+    next(error);
+  }
+});
 
 
 
