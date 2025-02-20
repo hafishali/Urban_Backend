@@ -4,30 +4,36 @@ const User = require('../../../Models/User/UserModel');
 const Address = require('../../../Models/User/AddressModel');
 const Product = require('../../../Models/Admin/ProductModel');
 const { sendEmail } = require('../../../config/mailGun');
-const Invoice=require('../../../Models/Admin/InvoiceModel')
+const Invoice = require('../../../Models/Admin/InvoiceModel')
 
 
 
 // email body
 const sendOrderStatusEmail = async (order) => {
   try {
-      const userEmail = order.userId.email;
-      let subject = "Order Status Update - URBAAN COLLECTIONS";
-      let text = "";
+    const userEmail = order.userId.email;
+    let actionType = "";
+    let emailVariables = {
+      subject: "Order Dispatched - URBAAN COLLECTIONS",
+      orderId: order.orderId,
+      customerName: order.userId.name || "Customer",
+    };
 
-      if (order.status === "In-Transist" && order.TrackId) {
-          text = `Your order #${order.orderId} has been dispatched. You can track it using this link: ${order.TrackId}.`;
-      } else if (order.status === "Delivered") {
-          text = `Your order #${order.orderId} has been successfully delivered. We hope you love your purchase! Let us know your feedback.`;
-      }
+    if (order.status === "In-Transist" && order.TrackId) {
+      actionType = "delivery_mail";
+      emailVariables.trackId = order.TrackId;
+    } else if (order.status === "Delivered") {
+      actionType = "delivery_mail";
+    }
 
-      if (text) {
-          await sendEmail(userEmail, subject, text);
-      }
+    if (actionType) {
+      await sendEmail(userEmail, actionType, emailVariables);
+    }
   } catch (error) {
-      console.error("Error sending email:", error.message);
+    console.error("Error sending email:", error.message);
   }
 };
+;
 
 
 
@@ -61,39 +67,40 @@ exports.getAllOrder = async (req, res) => {
 // Update order status
 exports.updateOrderStatus = async (req, res) => {
   try {
-      const { orderId } = req.params;
-      const { status, TrackId } = req.body;
+    const { orderId } = req.params;
+    const { status, TrackId } = req.body;
 
-      // Validate status
-      const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'invoice_generated', 'Cancelled'];
-      if (status && !validStatuses.includes(status)) {
-          return res.status(400).json({ message: "Invalid status value" });
-      }
+    // Validate status
+    const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'invoice_generated', 'Cancelled'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+    if (order.status === "In-Transist" && !order.TrackId) {
+      return res.status(400).json({ message: "This order doesn't have a tracking ID to update to Dispatched" });
+    }
 
-      // Update the order
-      const order = await Order.findByIdAndUpdate(
-          orderId,
-          { status, TrackId },
-          { new: true }
-      )
+    // Update the order
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { status, TrackId },
+      { new: true }
+    )
       .populate('userId', 'name email')
       .populate('addressId', 'address city state pincode')
       .populate('products.productId', 'title');
 
-      if (!order) {
-          return res.status(404).json({ message: "Order not found" });
-      }
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
 
-      // Send email based on order status
-      if ((order.status === "In-Transist" && order.TrackId) || order.status === "Delivered") {
-          await sendOrderStatusEmail(order);
-      } else if (order.status === "In-Transist" && !order.TrackId) {
-          return res.status(400).json({ message: "This order doesn't have a tracking ID" });
-      }
+    // Send email based on order status
+    if ((order.status === "In-Transist" && order.TrackId) || order.status === "Delivered") {
+      await sendOrderStatusEmail(order);
+    }
 
-      res.status(200).json({ message: "Order status updated successfully", order });
+    res.status(200).json({ message: "Order status updated successfully", order });
   } catch (err) {
-      res.status(500).json({ message: "Error updating order status", error: err.message });
+    res.status(500).json({ message: "Error updating order status", error: err.message });
   }
 };
 
@@ -128,13 +135,13 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
         invalidOrders.push(order);
       } else {
         validOrders.push(order);
-        
+
         // Fetch corresponding invoice
         const invoice = await Invoice.findOne({ order_id: order._id });
 
         if (invoice) {
           let shouldSendEmail = false;
-          
+
           if (status === 'In-Transist') {
             if (!invoice.dispatchMail) {
               shouldSendEmail = true;
@@ -142,8 +149,8 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
             } else {
               skippedEmails.push(order._id); // Log orders where mail is already sent
             }
-          } 
-          
+          }
+
           if (status === 'Delivered') {
             if (!invoice.deliveryMail) {
               shouldSendEmail = true;
@@ -371,7 +378,7 @@ exports.filterOrders = async (req, res) => {
         $sort: { createdAt: -1 } // **Sort Again after Grouping**
       }
     ]);
-    
+
 
     console.log('\n=== Results Debug ===');
     console.log('Number of orders found:', orders.length);
