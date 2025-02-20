@@ -75,7 +75,9 @@ exports.updateOrderStatus = async (req, res) => {
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid status value" });
     }
-    if (order.status === "In-Transist" && !order.TrackId) {
+   
+    const validOrder=await Order.findById(orderId)
+    if (validOrder.status === "In-Transist" && !validOrder.TrackId) {
       return res.status(400).json({ message: "This order doesn't have a tracking ID to update to Dispatched" });
     }
 
