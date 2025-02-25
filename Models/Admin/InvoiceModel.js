@@ -20,8 +20,6 @@ const invoiceSchema = new mongoose.Schema({
   Discounted_Amount:{ type: Number },
   totalAmount: { type: Number, required: true },
   payment_method:{ type: String, required: true },
-  deliveryMail:{type:Boolean,default:false},
-  dispatchMail:{type:Boolean,default:false},
   status: {
     type: String,
     enum: ['Pending', 'Paid', 'Unpaid', 'Refund'],
