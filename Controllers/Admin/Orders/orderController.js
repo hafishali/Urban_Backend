@@ -14,14 +14,15 @@ const sendOrderStatusEmail = async (order) => {
     const userEmail = order.userId.email;
     let actionType = "";
     let emailVariables = {
-      subject: "Order Dispatched - URBAAN COLLECTIONS",
+      subject: "Order Status - URBAAN COLLECTIONS",
       orderId: order.orderId,
       customerName: order.userId.name || "Customer",
     };
 
     if (order.status === "In-Transist" && order.TrackId) {
-      actionType = "delivery_mail";
-      emailVariables.trackId = order.TrackId;
+      actionType = "dispatch_mail";
+      emailVariables.TrackId = order.TrackId;
+      
     } else if (order.status === "Delivered") {
       actionType = "delivery_mail";
     }
@@ -33,7 +34,7 @@ const sendOrderStatusEmail = async (order) => {
     console.error("Error sending email:", error.message);
   }
 };
-;
+
 
 
 
@@ -121,7 +122,7 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid status value" });
     }
 
-    // Fetch orders & their invoices before updating
+    // Fetch orders
     const orders = await Order.find({ _id: { $in: orderIds } })
       .populate('userId', 'name email')
       .populate('products.productId', 'title');
@@ -129,46 +130,49 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
     let invalidOrders = [];
     let validOrders = [];
     let emailOrders = [];
-    let invoicesToUpdate = [];
     let skippedEmails = [];
 
     for (const order of orders) {
-      if (status === 'In-Transist' && !order.TrackId) {
-        invalidOrders.push(order);
-      } else {
-        validOrders.push(order);
+      let updateFields = {}; 
+      let shouldSendEmail = false;
 
-        // Fetch corresponding invoice
-        const invoice = await Invoice.findOne({ order_id: order._id });
-
-        if (invoice) {
-          let shouldSendEmail = false;
-
-          if (status === 'In-Transist') {
-            if (!invoice.dispatchMail) {
-              shouldSendEmail = true;
-              invoicesToUpdate.push({ invoiceId: invoice._id, field: 'dispatchMail' });
-            } else {
-              skippedEmails.push(order._id); // Log orders where mail is already sent
-            }
-          }
-
-          if (status === 'Delivered') {
-            if (!invoice.deliveryMail) {
-              shouldSendEmail = true;
-              invoicesToUpdate.push({ invoiceId: invoice._id, field: 'deliveryMail' });
-            } else {
-              skippedEmails.push(order._id);
-            }
-          }
-
-          if (shouldSendEmail) emailOrders.push(order);
+      if (status === 'In-Transist') {
+        if (!order.TrackId) {
+          // Skip this order if TrackId is missing
+          invalidOrders.push(order);
+          continue;
         }
+        if (!order.dispatchMail) {
+          shouldSendEmail = true;
+          updateFields.dispatchMail = true;
+        } else {
+          skippedEmails.push(order._id);
+        }
+      } 
+
+      if (status === 'Delivered') {
+        if (!order.deliveryMail) {
+          shouldSendEmail = true;
+          updateFields.deliveryMail = true;
+        } else {
+          skippedEmails.push(order._id);
+        }
+      }
+
+      // If an email should be sent, update order & send email
+      if (shouldSendEmail) {
+        emailOrders.push(order);
+        await Order.findByIdAndUpdate(order._id, { $set: updateFields });
+      }
+
+      // Add order to valid updates if it's not skipped
+      if (status !== 'In-Transist' || order.TrackId) {
+        validOrders.push(order);
       }
     }
 
-    // If no valid orders or eligible emails, return an error
-    if (validOrders.length === 0 && emailOrders.length === 0) {
+    // If no valid orders, return an error
+    if (validOrders.length === 0) {
       return res.status(400).json({
         message: "No valid orders found for updating.",
         skippedOrders: invalidOrders.map(order => ({
@@ -183,26 +187,19 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
     }
 
     // Update only valid orders
-    if (validOrders.length > 0) {
-      await Order.updateMany(
-        { _id: { $in: validOrders.map(order => order._id) } },
-        { $set: { status } }
-      );
-    }
+    await Order.updateMany(
+      { _id: { $in: validOrders.map(order => order._id) } },
+      { $set: { status } }
+    );
 
-    // Send emails only for eligible orders
+    // Send emails for eligible orders
     if (emailOrders.length > 0) {
       const emailPromises = emailOrders.map(order => sendOrderStatusEmail(order));
       await Promise.all(emailPromises);
-
-      // Update invoices after sending emails
-      for (const update of invoicesToUpdate) {
-        await Invoice.findByIdAndUpdate(update.invoiceId, { $set: { [update.field]: true } });
-      }
     }
 
     // Fetch updated orders for response
-    const validOrderDetails = await Order.find({ _id: { $in: validOrders.map(order => order._id) } })
+    const updatedOrders = await Order.find({ _id: { $in: validOrders.map(order => order._id) } })
       .populate('userId', 'name email')
       .populate('products.productId', 'title');
 
@@ -223,13 +220,14 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
         skippedEmails: `Skipped ${skippedEmails.length} orders as emails were already sent.`,
         skippedEmailOrders: skippedEmails
       }),
-      updatedOrders: validOrderDetails
+      updatedOrders
     });
 
   } catch (err) {
     res.status(500).json({ message: "Error updating order statuses", error: err.message });
   }
 };
+
 
 
 
