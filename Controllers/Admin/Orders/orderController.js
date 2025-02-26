@@ -70,6 +70,7 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status, TrackId } = req.body;
+    console.log(status)
 
     // Validate status
     const validStatuses = ['Pending', 'Processing', 'In-Transist', 'Delivered', 'invoice_generated', 'Cancelled'];
@@ -78,7 +79,8 @@ exports.updateOrderStatus = async (req, res) => {
     }
    
     const validOrder=await Order.findById(orderId)
-    if (validOrder.status === "In-Transist" && !validOrder.TrackId) {
+    console.log(validOrder.TrackId)
+    if (status === "In-Transist" && !validOrder.TrackId) {
       return res.status(400).json({ message: "This order doesn't have a tracking ID to update to Dispatched" });
     }
 

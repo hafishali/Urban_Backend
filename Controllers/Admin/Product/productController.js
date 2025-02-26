@@ -17,6 +17,9 @@ const s3 = new S3Client({
       
       const imageUrls = req.fileUrls || [];
       console.log(imageUrls)
+      if (!req.body.product_Code) {
+        return res.status(400).json({ error: "Product Code is required." });
+      }
       const existingProduct = await Product.findOne({ product_Code: req.body.product_Code });
 
       if (existingProduct) {
