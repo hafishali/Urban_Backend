@@ -34,10 +34,6 @@ const sendOrderStatusEmail = async (order) => {
     console.error("Error sending email:", error.message);
   }
 };
-
-
-
-
 // Get all orders
 exports.getAllOrder = async (req, res) => {
   try {
@@ -108,8 +104,6 @@ exports.updateOrderStatus = async (req, res) => {
     res.status(500).json({ message: "Error updating order status", error: err.message });
   }
 };
-
-
 // bulk edit on status
 exports.bulkUpdateOrderStatus = async (req, res) => {
   try {
@@ -229,18 +223,11 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
     res.status(500).json({ message: "Error updating order statuses", error: err.message });
   }
 };
-
-
-
-
-
-
 // filter order
 exports.filterOrders = async (req, res) => {
   try {
-    const { startDate, endDate, categoryIds, status } = req.query;
+    const { startDate, endDate, status } = req.query;
 
-    // Function to convert "DD-MM-YYYY" to Date object
     const parseDate = (dateStr, endOfDay = false) => {
       if (!dateStr) return null;
       const [day, month, year] = dateStr.split('-').map(Number);
@@ -253,39 +240,16 @@ exports.filterOrders = async (req, res) => {
       return date;
     };
 
-    // Debug incoming dates
-    console.log('\n=== Date Filter Debug ===');
-    console.log('Received startDate:', startDate);
-    console.log('Received endDate:', endDate);
-
     const matchStage = {};
-
     if (startDate || endDate) {
       matchStage.createdAt = {};
-
-      if (startDate) {
-        matchStage.createdAt.$gte = parseDate(startDate);
-        console.log('Parsed startDate:', matchStage.createdAt.$gte);
-      }
-
-      if (endDate) {
-        matchStage.createdAt.$lte = parseDate(endDate, true);
-        console.log('Parsed endDate:', matchStage.createdAt.$lte);
-      }
-
-      console.log('Final date match criteria:', matchStage.createdAt);
+      if (startDate) matchStage.createdAt.$gte = parseDate(startDate);
+      if (endDate) matchStage.createdAt.$lte = parseDate(endDate, true);
     }
-
-    if (status) {
-      matchStage.status = status;
-    }
-
-    console.log('\nFinal match stage:', matchStage);
+    if (status) matchStage.status = status;
 
     const orders = await Order.aggregate([
-      {
-        $match: matchStage
-      },
+      { $match: matchStage },
       // Populate userId
       {
         $lookup: {
@@ -303,11 +267,7 @@ exports.filterOrders = async (req, res) => {
           }
         }
       },
-      {
-        $project: {
-          "userDetails": 0
-        }
-      },
+      { $project: { userDetails: 0 } },
       // Populate addressId
       {
         $lookup: {
@@ -322,11 +282,7 @@ exports.filterOrders = async (req, res) => {
           addressId: { $arrayElemAt: ["$addressDetails", 0] }
         }
       },
-      {
-        $project: {
-          "addressDetails": 0
-        }
-      },
+      { $project: { addressDetails: 0 } },
       // Unwind products array
       {
         $unwind: {
@@ -340,24 +296,20 @@ exports.filterOrders = async (req, res) => {
           from: "products",
           localField: "products.productId",
           foreignField: "_id",
-          as: "products.productDetails"
+          as: "productDetails"
         }
       },
       {
         $addFields: {
-          "products.productId": { $arrayElemAt: ["$products.productDetails", 0] }
+          "products.productId": {
+            _id: { $arrayElemAt: ["$productDetails._id", 0] },
+            title: { $arrayElemAt: ["$productDetails.title", 0] },
+            images: { $arrayElemAt: ["$productDetails.images", 0] }
+          }
         }
       },
-      {
-        $project: {
-          "products.productDetails": 0
-        }
-      },
-      // **🔹 Add Sorting Stage Here**
-      {
-        $sort: { createdAt: -1 } // Sort in descending order (latest first)
-      },
-      // Re-group products back into an array
+      { $project: { productDetails: 0 } },
+      // Re-group products into an array
       {
         $group: {
           _id: "$_id",
@@ -373,33 +325,52 @@ exports.filterOrders = async (req, res) => {
           createdAt: { $first: "$createdAt" },
           updatedAt: { $first: "$updatedAt" },
           orderId: { $first: "$orderId" },
+          TrackId: { $first: "$TrackId" }, // Added TrackId
           products: { $push: "$products" }
         }
       },
-      {
-        $sort: { createdAt: -1 } // **Sort Again after Grouping**
-      }
+      { $sort: { createdAt: -1 } }
     ]);
 
-
-    console.log('\n=== Results Debug ===');
-    console.log('Number of orders found:', orders.length);
-
-    res.status(200).json(
-      orders
-
-    );
-
+    res.status(200).json(orders);
   } catch (error) {
-    console.error('\n=== Error Debug ===');
-    console.error('Error filtering orders:', error);
-    res.status(500).json({
-      message: 'Server error',
-      error: error.message,
-      debug: { matchStage: matchStage }
-    });
+    console.error("Error filtering orders:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
+//orders by userid
+exports.ordersByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid userId format" });
+    }
+
+    const userOrders = await Order.find({ userId: new mongoose.Types.ObjectId(userId) })
+      .populate({
+        path: "products.productId",
+        select: "title images price" // Only fetch needed fields
+      })
+      .populate({
+        path: "addressId",
+        select: "street city state zip" // Customize address details
+      }).populate({
+        path: "userId",
+        select: "name" // Customize address details
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(userOrders);
+  } catch (error) {
+    console.error("Error fetching user orders:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
 
 
 
