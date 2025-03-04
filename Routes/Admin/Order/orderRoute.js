@@ -14,4 +14,6 @@ router.get('/filter',  jwtVerify(['admin']),AdminOrderController.filterOrders);
 
 router.patch('/edit/status',jwtVerify(['admin']), AdminOrderController.bulkUpdateOrderStatus)
 
+router.get('/user/orders/:userId',  jwtVerify(['admin']),AdminOrderController.ordersByUser);
+
 module.exports = router;
