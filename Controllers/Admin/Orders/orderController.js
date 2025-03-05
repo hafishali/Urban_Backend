@@ -352,7 +352,7 @@ exports.ordersByUser = async (req, res) => {
     const userOrders = await Order.find({ userId: new mongoose.Types.ObjectId(userId) })
       .populate({
         path: "products.productId",
-        select: "title images price" // Only fetch needed fields
+        select: "title images price product_Code" // Only fetch needed fields
       })
       .populate({
         path: "addressId",
