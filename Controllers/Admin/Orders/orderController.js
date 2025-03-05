@@ -40,7 +40,7 @@ exports.getAllOrder = async (req, res) => {
     const orders = await Order.find()
       .populate('userId', 'name')
       .populate('addressId', 'address city state pincode')
-      .populate('products.productId', 'title')
+      .populate('products.productId', 'title product_Code images ')
       .sort({ createdAt: -1 });
     // Map the orders with necessary details
     // const orderList = orders.map(order => ({
