@@ -86,7 +86,7 @@ app.use("/api/webhook/razorpay", express.raw({ type: "application/json" }));
 app.use('/api/webhook/razorpay', webhookRoutes);
 
 
-
+// test
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 const PORT = 3005 || process.env.PORT
