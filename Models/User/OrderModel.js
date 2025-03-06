@@ -69,18 +69,23 @@ orderSchema.pre("validate", async function (next) {
   if (!this.orderId) {
     try {
       const counter = await Counter.findOneAndUpdate(
-        { _id: "orderId" }, // Ensure it matches your Counter schema's `_id`
-        { $inc: { sequenceValue: 1 } }, // Correct field name
-        { new: true, upsert: true }
+        { _id: "orderId" },  // Ensure _id is used correctly
+        { $inc: { sequenceValue: 1 } }, 
+        { new: true, upsert: true, setDefaultsOnInsert: true } // Ensure default values
       );
 
-      this.orderId = counter.sequenceValue; // Use the correct field name
+      if (!counter) {
+        return next(new Error("Counter document not found or created"));
+      }
+
+      this.orderId = counter.sequenceValue;
     } catch (error) {
       return next(error);
     }
   }
   next();
 });
+
 
 
 // Update updatedAt on save
