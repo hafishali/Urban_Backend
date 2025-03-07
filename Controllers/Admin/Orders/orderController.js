@@ -41,7 +41,9 @@ exports.getAllOrder = async (req, res) => {
       .populate('userId', 'name')
       .populate('addressId', 'address city state pincode')
       .populate('products.productId', 'title product_Code images ')
-      .sort({ createdAt: -1 });
+      .sort({ "createdAt": -1 })
+  .lean()
+  .exec();
     
     res.status(200).json(orders);
   } catch (err) {

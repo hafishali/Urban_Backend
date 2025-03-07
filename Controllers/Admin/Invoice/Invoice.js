@@ -10,7 +10,7 @@ try {
     .populate('userId','name phone')
     .populate('products.productId','title')
     .populate('address','address city state')
-    .sort({createdAt: -1});
+    .sort({createdAt: -1, _id: -1})
 
     res.status(200).json(invoice);
 } catch (err){
