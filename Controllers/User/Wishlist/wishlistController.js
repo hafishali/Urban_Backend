@@ -41,7 +41,14 @@ exports.getWishlistByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const wishlist = await Wishlist.findOne({ userId }).populate('items.productId');
+    const wishlist = await Wishlist.findOne({ userId }).populate({
+      path: 'items.productId',
+      populate: [
+        { path: 'category' },  // Populate category
+        { path: 'subcategory' } // Populate subcategory
+      ],
+    });
+
     if (!wishlist) {
       return res.status(404).json({ message: "Wishlist not found" });
     }
