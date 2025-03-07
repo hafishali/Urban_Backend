@@ -67,6 +67,7 @@ const orderSchema = new mongoose.Schema({
 
 orderSchema.pre("validate", async function (next) {
   if (!this.orderId) {
+   
     try {
       const counter = await Counter.findOneAndUpdate(
         { _id: "orderId" },  // Ensure _id is used correctly
@@ -99,30 +100,32 @@ const generateUniqueInvoiceNumber = async () => {
   const now = new Date();
   const currentYear = now.getFullYear();
   const nextYear = currentYear + 1;
-
   // Determine Financial Year (April - March)
   const financialYear =
     now.getMonth() + 1 >= 4
       ? `${String(currentYear).slice(2)}-${String(nextYear).slice(2)}`
       : `${String(currentYear - 1).slice(2)}-${String(currentYear).slice(2)}`;
-
   const prefix = `URO${financialYear}`; // Example: URO24-25
-
-  // Generate a unique counter ID for each financial year
   const counterId = `invoice_${financialYear}`;
-
-  // Find or create a counter for the current financial year
-  const counter = await Counter.findOneAndUpdate(
-    { _id: counterId },  // Use financial-year-specific ID
-    { $inc: { sequenceValue: 1 } }, // Increment sequence
-    { new: true, upsert: true, setDefaultsOnInsert: true } // Create if not exists
-  );
-
-  // Ensure the sequence is 7 digits long (0000001, 0000002, etc.)
-  const formattedNumber = String(counter.sequenceValue).padStart(7, '0');
-
-  return `${prefix}${formattedNumber}`; // Example: URO24-25000001
+  
+  try {
+    // Use a single atomic operation with upsert
+    const counter = await Counter.findOneAndUpdate(
+      { _id: counterId },
+      { $inc: { sequenceValue: 1 } },
+      { new: true, upsert: true } // This creates the document if it doesn't exist
+    );
+    
+    // Ensure the sequence is 7 digits long
+    const formattedNumber = String(counter.sequenceValue).padStart(7, '0');
+    return `${prefix}${formattedNumber}`;
+  } catch (error) {
+    console.error("Error generating invoice number:", error);
+    throw error;
+  }
 };
+
+
 
 
 

@@ -42,20 +42,7 @@ exports.getAllOrder = async (req, res) => {
       .populate('addressId', 'address city state pincode')
       .populate('products.productId', 'title product_Code images ')
       .sort({ createdAt: -1 });
-    // Map the orders with necessary details
-    // const orderList = orders.map(order => ({
-    //         orderId: order.orderId, // 4-digit order ID
-    //         customerName: order.userId.name, // Access populated name from userId
-    //         address: `${order.addressId.address}, ${order.addressId.city}, ${order.addressId.state}, ${order.addressId.pincode}`,
-    //         deliveryDate: new Date(order.createdAt).toLocaleDateString(), // Format delivery date
-    //         products: order.products.map(product => ({
-    //             productName: product.productId ? product.productId.title : 'N/A', // Ensure productId is valid and return title
-    //             size: product.size,
-    //         })),
-    //         paymentMethod: order.paymentMethod,
-    //         status: order.status, // Order status
-    //         action: order.status,
-    // }));
+    
     res.status(200).json(orders);
   } catch (err) {
     res.status(500).json({ message: "Error fetching orders", error: err.message });
