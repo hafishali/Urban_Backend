@@ -21,16 +21,27 @@ exports.addToWishlist = async (req, res) => {
       wishlist = new Wishlist({ userId, items: [] });
     }
 
-    const isAlreadyInWishlist = wishlist.items.some((item) => item.productId.toString() === productId);
+    const itemIndex = wishlist.items.findIndex((item) => item.productId.toString() === productId);
 
-    if (isAlreadyInWishlist) {
-      return res.status(400).json({ message: "Product is already in the wishlist" });
+    let isInWishlist = false;
+
+    if (itemIndex > -1) {
+      // If product is already in wishlist, remove it
+      wishlist.items.splice(itemIndex, 1);
+    } else {
+      // If product is not in wishlist, add it
+      wishlist.items.push({ productId });
+      isInWishlist = true;
     }
 
-    wishlist.items.push({ productId });
     await wishlist.save();
+    res.status(200).json({
+      message: isInWishlist ? "Product added to wishlist" : "Product removed from wishlist",
+      isInWishlist, // This will help in UI update
+      wishlist,
+    });
+   
 
-    res.status(200).json({ message: "Product added to wishlist", wishlist });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
