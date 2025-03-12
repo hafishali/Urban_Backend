@@ -78,7 +78,7 @@ exports.getProductsByCategoryId = async (req, res) => {
       // Find products by category ID
       const products = await Product.find({ category: categoryId })
           .populate('category')
-          .populate('subcategory');
+          .populate('subcategory').lean()
 
       if (products.length === 0) {
           return res.status(404).json({ message: "No products found in this category" });
@@ -87,9 +87,10 @@ exports.getProductsByCategoryId = async (req, res) => {
       if (userId) {
           // Fetch the user's wishlist to check for wishlisted products
           const wishlist = await Wishlist.findOne({ userId });
-
+          console.log(wishlist)
           if (wishlist) {
               const wishlistedProductIds = new Set(wishlist.items.map(item => item.productId.toString()));
+              
 
               // Add isInWishlist flag to each product
               products.forEach(product => {
@@ -191,7 +192,7 @@ exports.getSimilarProducts = async (req, res) => {
 
       const similarProducts = await Product.find(query)
           .populate('category')
-          .populate('subcategory');
+          .populate('subcategory').lean();
 
       if (similarProducts.length === 0) {
           return res.status(404).json({ message: "No similar products found" });
@@ -199,6 +200,7 @@ exports.getSimilarProducts = async (req, res) => {
 
       if (userId) {
           const wishlist = await Wishlist.findOne({ userId });
+          console.log(wishlist)
 
           if (wishlist) {
               const wishlistedProductIds = new Set(wishlist.items.map(item => item.productId.toString()));
