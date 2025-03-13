@@ -24,6 +24,8 @@ const DashboardController=require('./Routes/Admin/Dashboard/DashboardRoute')
 const adminProfileController=require('./Routes/Admin/Profile/ProfileRoute')
 const invoiceRoutes = require('./Routes/Admin/Invoice/invoiceRoute');
 require('./Controllers/Admin/Coupon/couponController')
+const cron = require('node-cron');
+const WalkinCoupen = require('./Models/User/WalkinCoupen');
 
 const userCartRoutes = require('./Routes/User/Cart/cartRoute')
 const wishlistRoutes = require('./Routes/User/Wishlist/wishlistRoute')
@@ -88,6 +90,14 @@ app.use('/api/webhook/razorpay', webhookRoutes);
 
 // test
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
+
+
+
+cron.schedule('0 * * * *', async () => {
+    await WalkinCoupen.expireCoupons();
+    console.log('Expired coupons updated.');
+});
 
 const PORT = 3005 || process.env.PORT
 
